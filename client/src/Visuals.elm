@@ -18,3 +18,6 @@ svgGroupWithListTransformStringAndElements listTransform elements =
 svgTransformTranslate : Float2 -> String
 svgTransformTranslate (offsetX, offsetY) = "translate(" ++ (toString offsetX) ++ "," ++ (toString offsetY) ++ ")"
 
+svgListAttributesFromStartAndEnd : Float2 -> Float2 -> List (Svg.Attribute a)
+svgListAttributesFromStartAndEnd (origX, origY) (destX, destY) =
+  [ x1 (toString origX), y1 (toString origY), x2 (toString destX), y2 (toString destY) ]
