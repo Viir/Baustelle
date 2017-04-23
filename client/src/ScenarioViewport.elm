@@ -90,14 +90,14 @@ getIdOfJointUnderMouse scenario viewport =
 
 jointView : Bool -> List (Html.Html a)
 jointView isMouseOver =
-  [ Svg.circle [ style (jointStyle isMouseOver) ] []]
-
-jointStyle : Bool -> HtmlStyle
-jointStyle isMouseOver =
   let
     diameter = jointViewDiameter * (1 + (if isMouseOver then 0.3 else 0))
   in
-    [("r", (diameter |> toString) ++ "px"),("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px")]
+    [ Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle diameter) ] []]
+
+jointStyle : Float -> HtmlStyle
+jointStyle diameter =
+  [("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px")]
 
 dragGestureIndicationLineStyle : HtmlStyle
 dragGestureIndicationLineStyle = [("stroke","whitesmoke"),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6")]
