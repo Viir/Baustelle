@@ -1,4 +1,4 @@
-module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateForPlayerInputs)
+module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateForPlayerInputs, stressFactorFromComponent)
 
 import Base exposing (..)
 import Vector2 exposing (Float2)
@@ -33,7 +33,8 @@ type alias ScenarioConfig =
   {
     gravitation : Float2,
     maintainComponentLengthForceFactor : Float,
-    dampFactor : Float
+    dampFactor : Float,
+    componentFailThreshold : Float
   }
 
 config : ScenarioConfig
@@ -41,7 +42,8 @@ config =
   {
     gravitation = (0, 1e-4),
     maintainComponentLengthForceFactor = 3e-2,
-    dampFactor = 1e-3
+    dampFactor = 1e-3,
+    componentFailThreshold = 0.16
   }
 
 updateStepDuration : Int
@@ -138,4 +140,14 @@ distanceFromJointsInScenario : Model -> (JointId, JointId) -> Maybe Float
 distanceFromJointsInScenario scenario (joint0Id, joint1Id) =
   case (scenario.joints |> Dict.get joint0Id, scenario.joints |> Dict.get joint1Id) of
   (Just joint0, Just joint1) -> Just (joint0.location |> Vector2.distance joint1.location)
+  _ -> Nothing
+
+stressFactorFromComponent : Model -> (JointId, JointId) -> Maybe Float
+stressFactorFromComponent scenario joints =
+  case (distanceFromJointsInScenario scenario joints, scenario.components |> Dict.get joints) of
+  (Just length, Just component) ->
+    let
+      stretchFactor = length / component.builtLength - 1
+    in
+      Just ((abs stretchFactor) / config.componentFailThreshold)
   _ -> Nothing

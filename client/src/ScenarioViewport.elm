@@ -9,6 +9,8 @@ import Svg
 import Svg.Attributes as SA
 import Vector2 exposing (Float2)
 import Dict
+import Color
+import Color.Convert
 
 
 type Msg
@@ -66,8 +68,9 @@ viewWithScenarioUpdated scenario viewport =
         Just location ->
           let
             isBuilt = scenario.components |> Dict.member jointsIds
+            stressFactor = if not isBuilt then 0 else Scenario.stressFactorFromComponent scenario jointsIds |> Maybe.withDefault 1
           in
-            Just (componentView isBuilt location))
+            Just (componentView isBuilt stressFactor location))
       |> Dict.values |> List.filterMap identity
 
     inputElement : Html.Html Msg
@@ -138,7 +141,7 @@ getScenarioAfterMouseUpEvent scenario viewport =
         update (MouseEvent (getMouseLeftButtonUpEventForOffset mouseLocationInWorld)) scenario viewport |> Tuple.second
   in
     Scenario.updateForPlayerInputs toScenarioInput scenario
-    
+
 getIdOfJointUnderMouse : Scenario.Model -> Model -> Maybe JointId
 getIdOfJointUnderMouse scenario viewport =
   case viewport.mouseLocationInWorld of
@@ -159,9 +162,9 @@ jointView isBuilt isMouseOver location =
     [ Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle isBuilt diameter) ] []]
     |> svgGroupWithTranslationAndElements location
 
-componentView : Bool -> (Float2, Float2) -> Html.Html a
-componentView isBuilt (startLocation, endLocation) =
-  Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style (componentLineStyle isBuilt)]) []
+componentView : Bool -> Float -> (Float2, Float2) -> Html.Html a
+componentView isBuilt stressFactor (startLocation, endLocation) =
+  Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style (componentLineStyle isBuilt stressFactor)]) []
 
 jointStyle : Bool -> Float -> HtmlStyle
 jointStyle isBuilt diameter =
@@ -170,12 +173,15 @@ jointStyle isBuilt diameter =
     ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
   ]
 
-componentLineStyle : Bool -> HtmlStyle
-componentLineStyle isBuilt =
-  [
-    ("stroke","whitesmoke"),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6"),
-    ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
-  ]
+componentLineStyle : Bool -> Float -> HtmlStyle
+componentLineStyle isBuilt stressFactor =
+  let
+    color = Color.hsla 0 (stressFactor |> min 1 |> max 0) 0.5 0.8
+  in
+    [
+      ("stroke", color |> Color.Convert.colorToCssRgba),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6"),
+      ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
+    ]
 
 viewportStyle : HtmlStyle
 viewportStyle =
