@@ -1,5 +1,6 @@
-module Scenario exposing (Model, JointId, FromPlayerMsg (..), update, updateForPlayerInput)
+module Scenario exposing (Model, JointId, FromPlayerMsg (..), update, updateForPlayerInputs)
 
+import Base exposing (..)
 import Vector2 exposing (Float2)
 import Dict
 
@@ -24,6 +25,10 @@ update scenario =
       scenario.permSupport |> Dict.union scenario.tempSupport |> Dict.union scenario.joints
   in
     { scenario | joints = joints }
+
+updateForPlayerInputs : List FromPlayerMsg -> Model -> Model
+updateForPlayerInputs listFromPlayerInput scenario =
+  scenario |> withListTransformApplied (listFromPlayerInput |> List.map updateForPlayerInput)
 
 updateForPlayerInput : FromPlayerMsg -> Model -> Model
 updateForPlayerInput msg scenario =

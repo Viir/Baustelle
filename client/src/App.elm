@@ -38,8 +38,7 @@ update msg model =
   SiteViewport viewportMsg ->
     let
       (viewport, listToGameInput) = (ScenarioViewport.update viewportMsg model.scenario model.viewport)
-      scenario =
-        model.scenario |> withListTransformApplied (listToGameInput |> List.map Scenario.updateForPlayerInput)
+      scenario = Scenario.updateForPlayerInputs listToGameInput model.scenario
     in
       { model | scenario = scenario, viewport = viewport }
 

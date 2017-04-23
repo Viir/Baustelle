@@ -38,30 +38,36 @@ view scenarioBeforeUpdate viewport =
 viewWithScenarioUpdated : Scenario.Model -> Model -> Html.Html Msg
 viewWithScenarioUpdated scenario viewport =
   let
-    jointLocationFromId jointId = scenario.joints |> Dict.get jointId
+    scenarioAfterMouseUpEvent = getScenarioAfterMouseUpEvent scenario viewport
 
-    supportJointsViews =
-      scenario.joints
+    jointLocationFromId jointId = scenarioAfterMouseUpEvent.joints |> Dict.get jointId
+
+    componentStartAndEndLocation : (JointId, JointId) -> Maybe (Float2, Float2)
+    componentStartAndEndLocation (startJointId, endJointId) =
+      case (jointLocationFromId startJointId, jointLocationFromId endJointId) of
+        (Just startLocation, Just endLocation) -> Just (startLocation, endLocation)
+        _ -> Nothing
+
+    jointsViews =
+      scenario.joints |> Dict.union scenarioAfterMouseUpEvent.joints
       |> Dict.map (\jointId jointLocation ->
         let
+          isBuilt = scenario.joints |> Dict.member jointId
           isMouseOver = getIdOfJointUnderMouse scenario viewport == Just jointId
         in
-          (jointView isMouseOver) |> svgGroupWithTranslationAndElements jointLocation)
+          jointView isBuilt (isMouseOver && isBuilt) jointLocation)
       |> Dict.values
 
-    dragGestureIndication : List (Html.Html a)
-    dragGestureIndication =
-      case (viewport.dragStartJointId |> Maybe.andThen jointLocationFromId, viewport.mouseLocationInWorld) of
-      (Just dragStartLocation, Just mouseLocationInWorld) ->
-        [ componentView False (dragStartLocation, mouseLocationInWorld) ]
-      _ -> []
-
     componentsViews =
-      scenario.components
-      |> List.filterMap (\(startJointId, endJointId) ->
-        case (jointLocationFromId startJointId, jointLocationFromId endJointId) of
-        (Just startLocation, Just endLocation) -> Just (componentView True (startLocation, endLocation))
-        _ -> Nothing)
+      scenarioAfterMouseUpEvent.components
+      |> List.filterMap (\startAndEndJoint ->
+        case componentStartAndEndLocation startAndEndJoint of
+        Nothing -> Nothing
+        Just location ->
+          let
+            isBuilt = scenario.components |> List.member startAndEndJoint
+          in
+            Just (componentView isBuilt location))
 
     inputElement : Html.Html Msg
     inputElement =
@@ -70,9 +76,8 @@ viewWithScenarioUpdated scenario viewport =
   in
     Svg.svg [ SA.width "400", SA.height "400", style viewportStyle ]
     [
-      supportJointsViews |> Svg.g [],
+      jointsViews |> Svg.g [],
       componentsViews |> Svg.g [],
-      dragGestureIndication |> Svg.g [],
       inputElement
     ]
 
@@ -113,6 +118,26 @@ updateWithScenarioUpdated msg scenario viewport =
       eventTypeSpecificTransform { viewportAfterMouseMove | mouseLocationInWorld = Just mouseEvent.offset }
   Error error -> (viewport, [])
 
+getMouseLeftButtonUpEventForOffset : Float2 -> Console.MouseEvent
+getMouseLeftButtonUpEventForOffset offset =
+  {
+    button = Console.Left,
+    eventType = Console.MouseUp,
+    offset = offset,
+    wheelDelta = (0,0)
+  }
+
+getScenarioAfterMouseUpEvent : Scenario.Model -> Model -> Scenario.Model
+getScenarioAfterMouseUpEvent scenario viewport =
+  let
+    toScenarioInput =
+      case viewport.mouseLocationInWorld of
+      Nothing -> []
+      Just mouseLocationInWorld ->
+        update (MouseEvent (getMouseLeftButtonUpEventForOffset mouseLocationInWorld)) scenario viewport |> Tuple.second
+  in
+    Scenario.updateForPlayerInputs toScenarioInput scenario
+    
 getIdOfJointUnderMouse : Scenario.Model -> Model -> Maybe JointId
 getIdOfJointUnderMouse scenario viewport =
   case viewport.mouseLocationInWorld of
@@ -125,20 +150,24 @@ getIdOfJointForInteractionFromLocation scenario location =
   |> Dict.filter (\_ jointLocation -> Vector2.distance jointLocation location < jointViewDiameter * 2)
   |> Dict.keys |> List.head
 
-jointView : Bool -> List (Html.Html a)
-jointView isMouseOver =
+jointView : Bool -> Bool -> Float2 -> Html.Html a
+jointView isBuilt isMouseOver location =
   let
     diameter = jointViewDiameter * (1 + (if isMouseOver then 0.3 else 0))
   in
-    [ Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle diameter) ] []]
+    [ Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle isBuilt diameter) ] []]
+    |> svgGroupWithTranslationAndElements location
 
 componentView : Bool -> (Float2, Float2) -> Html.Html a
 componentView isBuilt (startLocation, endLocation) =
   Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style (componentLineStyle isBuilt)]) []
 
-jointStyle : Float -> HtmlStyle
-jointStyle diameter =
-  [("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px")]
+jointStyle : Bool -> Float -> HtmlStyle
+jointStyle isBuilt diameter =
+  [
+    ("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px"),
+    ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
+  ]
 
 componentLineStyle : Bool -> HtmlStyle
 componentLineStyle isBuilt =

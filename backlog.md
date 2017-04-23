@@ -9,5 +9,4 @@
 + Enable player to recognize which component has most risk of failure: Indicate stress on component.
 
 ### UI Interaction
-+ Drag gesture: Snap to joint which would be target on mouseup for better visual feedback.
 + Drag gesture: Affordance for dragging when user clicks on joint.

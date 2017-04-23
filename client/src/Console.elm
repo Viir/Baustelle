@@ -1,4 +1,4 @@
-module Console exposing (MouseEvent, MouseButtonType, MouseEventType (..), eventMouseMoveAttribute, setMouseEventAttribute)
+module Console exposing (MouseEvent, MouseButtonType (..), MouseEventType (..), eventMouseMoveAttribute, setMouseEventAttribute)
 
 import Vector2 exposing (Float2)
 import Json.Decode as Decode
