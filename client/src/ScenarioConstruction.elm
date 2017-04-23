@@ -12,7 +12,7 @@ emptyScenario =
         joints = Dict.empty,
         permSupport = Dict.empty,
         tempSupport = Dict.empty,
-        components = []
+        components = Dict.empty
     }
 
 withPermSupportAddedAtLocations : List Float2 -> Scenario.Model -> Scenario.Model

@@ -1,6 +1,6 @@
 module ScenarioViewport exposing (Model, Msg, update, view, defaultViewport)
 
-import Scenario exposing (JointId, update)
+import Scenario exposing (JointId)
 import Console
 import Visuals exposing (HtmlStyle, svgGroupWithTranslationAndElements)
 import Html exposing (beginnerProgram, div, button, text)
@@ -33,7 +33,7 @@ jointViewDiameter = 8
 
 view : Scenario.Model -> Model -> Html.Html Msg
 view scenarioBeforeUpdate viewport =
-  viewWithScenarioUpdated (scenarioBeforeUpdate |> Scenario.update) viewport
+  viewWithScenarioUpdated (scenarioBeforeUpdate |> Scenario.progress 0) viewport
 
 viewWithScenarioUpdated : Scenario.Model -> Model -> Html.Html Msg
 viewWithScenarioUpdated scenario viewport =
@@ -45,29 +45,30 @@ viewWithScenarioUpdated scenario viewport =
     componentStartAndEndLocation : (JointId, JointId) -> Maybe (Float2, Float2)
     componentStartAndEndLocation (startJointId, endJointId) =
       case (jointLocationFromId startJointId, jointLocationFromId endJointId) of
-        (Just startLocation, Just endLocation) -> Just (startLocation, endLocation)
+        (Just startJoint, Just endJoint) -> Just (startJoint.location, endJoint.location)
         _ -> Nothing
 
     jointsViews =
       scenario.joints |> Dict.union scenarioAfterMouseUpEvent.joints
-      |> Dict.map (\jointId jointLocation ->
+      |> Dict.map (\jointId joint ->
         let
           isBuilt = scenario.joints |> Dict.member jointId
           isMouseOver = getIdOfJointUnderMouse scenario viewport == Just jointId
         in
-          jointView isBuilt (isMouseOver && isBuilt) jointLocation)
+          jointView isBuilt (isMouseOver && isBuilt) joint.location)
       |> Dict.values
 
     componentsViews =
       scenarioAfterMouseUpEvent.components
-      |> List.filterMap (\startAndEndJoint ->
-        case componentStartAndEndLocation startAndEndJoint of
+      |> Dict.map (\jointsIds component ->
+        case componentStartAndEndLocation jointsIds of
         Nothing -> Nothing
         Just location ->
           let
-            isBuilt = scenario.components |> List.member startAndEndJoint
+            isBuilt = scenario.components |> Dict.member jointsIds
           in
             Just (componentView isBuilt location))
+      |> Dict.values |> List.filterMap identity
 
     inputElement : Html.Html Msg
     inputElement =
@@ -83,7 +84,7 @@ viewWithScenarioUpdated scenario viewport =
 
 update : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
 update msg scenarioBeforeUpdate viewport =
-  updateWithScenarioUpdated msg (scenarioBeforeUpdate |> Scenario.update) viewport
+  updateWithScenarioUpdated msg (scenarioBeforeUpdate |> Scenario.progress 0) viewport
 
 updateWithScenarioUpdated : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
 updateWithScenarioUpdated msg scenario viewport =
@@ -147,7 +148,7 @@ getIdOfJointUnderMouse scenario viewport =
 getIdOfJointForInteractionFromLocation : Scenario.Model -> Float2 -> Maybe JointId
 getIdOfJointForInteractionFromLocation scenario location =
   scenario.joints
-  |> Dict.filter (\_ jointLocation -> Vector2.distance jointLocation location < jointViewDiameter * 2)
+  |> Dict.filter (\_ joint -> Vector2.distance joint.location location < jointViewDiameter * 2)
   |> Dict.keys |> List.head
 
 jointView : Bool -> Bool -> Float2 -> Html.Html a
