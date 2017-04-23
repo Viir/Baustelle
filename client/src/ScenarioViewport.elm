@@ -1,6 +1,6 @@
 module ScenarioViewport exposing (Model, Msg, update, view, defaultViewport)
 
-import Scenario exposing (JointId)
+import Scenario exposing (JointId, update)
 import Console
 import Visuals exposing (HtmlStyle, svgGroupWithTranslationAndElements)
 import Html exposing (beginnerProgram, div, button, text)
@@ -32,12 +32,16 @@ jointViewDiameter : Float
 jointViewDiameter = 8
 
 view : Scenario.Model -> Model -> Html.Html Msg
-view scenario viewport =
+view scenarioBeforeUpdate viewport =
+  viewWithScenarioUpdated (scenarioBeforeUpdate |> Scenario.update) viewport
+
+viewWithScenarioUpdated : Scenario.Model -> Model -> Html.Html Msg
+viewWithScenarioUpdated scenario viewport =
   let
-    jointLocationFromId jointId = scenario.supportJoints |> Dict.get jointId
+    jointLocationFromId jointId = scenario.joints |> Dict.get jointId
 
     supportJointsViews =
-      scenario.supportJoints
+      scenario.joints
       |> Dict.map (\jointId jointLocation ->
         let
           isMouseOver = getIdOfJointUnderMouse scenario viewport == Just jointId
@@ -73,7 +77,11 @@ view scenario viewport =
     ]
 
 update : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
-update msg scenario viewport =
+update msg scenarioBeforeUpdate viewport =
+  updateWithScenarioUpdated msg (scenarioBeforeUpdate |> Scenario.update) viewport
+
+updateWithScenarioUpdated : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
+updateWithScenarioUpdated msg scenario viewport =
   case msg of
   MouseEvent mouseEvent ->
     let
@@ -84,9 +92,18 @@ update msg scenario viewport =
         Console.MouseUp ->
           let
             toScenarioMessage =
-              case (viewport.dragStartJointId, getIdOfJointUnderMouse scenario viewport) of
-              (Just startJointId, Just endJointId) -> [ Scenario.BuildComponent startJointId endJointId ]
-              _ -> []
+              case viewport.mouseLocationInWorld of
+              Nothing -> []
+              Just mouseLocationInWorld ->
+                case (viewport.dragStartJointId, getIdOfJointForInteractionFromLocation scenario mouseLocationInWorld) of
+                (Just startJointId, Just endJointId) ->
+                  [ Scenario.BuildComponent startJointId endJointId ]
+                (Just startJointId, Nothing) ->
+                  let
+                    newJointId = (scenario.joints |> Dict.keys |> List.maximum |> Maybe.withDefault 0) + 1
+                  in
+                    [ Scenario.TempSupportForJoint newJointId mouseLocationInWorld, Scenario.BuildComponent startJointId newJointId ]
+                _ -> []
           in
             (\viewport -> ({ viewport | dragStartJointId = Nothing }, toScenarioMessage))
         _ -> (\viewport -> (viewport, []))
@@ -100,10 +117,13 @@ getIdOfJointUnderMouse : Scenario.Model -> Model -> Maybe JointId
 getIdOfJointUnderMouse scenario viewport =
   case viewport.mouseLocationInWorld of
   Nothing -> Nothing
-  Just mouseLocationInWorld ->
-    scenario.supportJoints
-    |> Dict.filter (\_ jointLocation -> Vector2.distance jointLocation mouseLocationInWorld < jointViewDiameter * 2)
-    |> Dict.keys |> List.head
+  Just mouseLocationInWorld -> getIdOfJointForInteractionFromLocation scenario mouseLocationInWorld
+
+getIdOfJointForInteractionFromLocation : Scenario.Model -> Float2 -> Maybe JointId
+getIdOfJointForInteractionFromLocation scenario location =
+  scenario.joints
+  |> Dict.filter (\_ jointLocation -> Vector2.distance jointLocation location < jointViewDiameter * 2)
+  |> Dict.keys |> List.head
 
 jointView : Bool -> List (Html.Html a)
 jointView isMouseOver =

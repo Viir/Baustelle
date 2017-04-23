@@ -1,5 +1,4 @@
 ### Gameplay
-+ Enable player to add joints at locations of his choice.
 + Add environmental force and compute stress on components. Process component failure.
 + Introduce goal and compute scenario completion/solution condition.
 + Enable scoring comparison between different possible solutions: cost for components.

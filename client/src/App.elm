@@ -2,6 +2,7 @@ import Base exposing (..)
 import Html exposing (beginnerProgram, div, button, text)
 import Scenario
 import ScenarioViewport
+import ScenarioConstruction
 
 
 main : Program Never Model Msg
@@ -21,10 +22,8 @@ init : Model
 init =
   {
     scenario =
-    {
-      supportJoints = [ (100,100), (300,100) ] |> dictFromListWithIndexAsKey,
-      components = []
-    },
+      ScenarioConstruction.emptyScenario
+      |> ScenarioConstruction.withPermSupportAddedAtLocations [(100,100), (300,100)],
     viewport = ScenarioViewport.defaultViewport
   }
 
