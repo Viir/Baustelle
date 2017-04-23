@@ -1,9 +1,12 @@
-module Scenario exposing (Model)
+module Scenario exposing (Model, JointId)
 
 import Vector2 exposing (Float2)
+import Dict
+
+type alias JointId = Int
 
 type alias Model =
   {
-    supportPoints : List Float2
+    supportJoints : Dict.Dict JointId Float2
   }
 

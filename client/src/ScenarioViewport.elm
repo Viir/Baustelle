@@ -1,6 +1,6 @@
 module ScenarioViewport exposing (Model, Msg, update, view, defaultViewport)
 
-import Scenario
+import Scenario exposing (JointId)
 import Console
 import Visuals exposing (..)
 import Html exposing (beginnerProgram, div, button, text)
@@ -8,6 +8,7 @@ import Html.Attributes exposing (style)
 import Svg
 import Svg.Attributes as SA
 import Vector2 exposing (Float2)
+import Dict
 
 
 type Msg
@@ -25,12 +26,20 @@ defaultViewport =
     mouseLocationInWorld = Nothing
   }
 
+jointViewDiameter : Float
+jointViewDiameter = 8
+
 view : Scenario.Model -> Model -> Html.Html Msg
 view scenario viewport =
   let
-    supportPointsViews =
-      scenario.supportPoints
-      |> List.map (\location -> [ Svg.circle [ SA.r "4", style supportPointStyle ] []] |> svgGroupWithTranslationAndElements location)
+    supportJointsViews =
+      scenario.supportJoints
+      |> Dict.map (\jointId jointLocation ->
+        let
+          isMouseOver = getIdOfJointUnderMouse scenario viewport == Just jointId
+        in
+          (jointView isMouseOver) |> svgGroupWithTranslationAndElements jointLocation)
+      |> Dict.values
 
     inputElement : Html.Html Msg
     inputElement =
@@ -39,17 +48,32 @@ view scenario viewport =
   in
     Svg.svg [ SA.width "400", SA.height "400", style [("background", "#101010") ]]
     [
-      supportPointsViews |> Svg.g [],
+      supportJointsViews |> Svg.g [],
       inputElement
     ]
 
-update : Msg -> Model -> Model
-update msg viewport =
+update : Msg -> Scenario.Model -> Model -> Model
+update msg scenario viewport =
   case msg of
-  MouseEvent mouseEvent ->
-    { viewport | mouseLocationInWorld = Just mouseEvent.offset }
+  MouseEvent mouseEvent -> { viewport | mouseLocationInWorld = Just mouseEvent.offset }
   Error error -> viewport
 
+getIdOfJointUnderMouse : Scenario.Model -> Model -> Maybe JointId
+getIdOfJointUnderMouse scenario viewport =
+  case viewport.mouseLocationInWorld of
+  Nothing -> Nothing
+  Just mouseLocationInWorld ->
+    scenario.supportJoints
+    |> Dict.filter (\_ jointLocation -> Vector2.distance jointLocation mouseLocationInWorld < jointViewDiameter * 2)
+    |> Dict.keys |> List.head
 
-supportPointStyle : HtmlStyle
-supportPointStyle = [("r", "8px"),("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width","3px")]
+jointView : Bool -> List (Html.Html a)
+jointView isMouseOver =
+  [ Svg.circle [ style (jointStyle isMouseOver) ] []]
+
+jointStyle : Bool -> HtmlStyle
+jointStyle isMouseOver =
+  let
+    diameter = jointViewDiameter * (1 + (if isMouseOver then 0.3 else 0))
+  in
+    [("r", (diameter |> toString) ++ "px"),("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px")]

@@ -1,3 +1,4 @@
+import Base exposing (..)
 import Html exposing (beginnerProgram, div, button, text)
 import Scenario
 import ScenarioViewport
@@ -21,7 +22,7 @@ init =
   {
     scenario =
     {
-      supportPoints = [ (100,100), (300,100) ]
+      supportJoints = [ (100,100), (300,100) ] |> dictFromListWithIndexAsKey
     },
     viewport = ScenarioViewport.defaultViewport
   }
@@ -34,5 +35,5 @@ view model =
 update : Msg -> Model -> Model
 update msg model =
   case msg of
-  SiteViewport viewportMsg -> { model | viewport = (ScenarioViewport.update viewportMsg model.viewport) }
+  SiteViewport viewportMsg -> { model | viewport = (ScenarioViewport.update viewportMsg model.scenario model.viewport) }
 
