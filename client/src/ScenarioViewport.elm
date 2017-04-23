@@ -34,6 +34,8 @@ jointViewDiameter = 8
 view : Scenario.Model -> Model -> Html.Html Msg
 view scenario viewport =
   let
+    jointLocationFromId jointId = scenario.supportJoints |> Dict.get jointId
+
     supportJointsViews =
       scenario.supportJoints
       |> Dict.map (\jointId jointLocation ->
@@ -45,10 +47,17 @@ view scenario viewport =
 
     dragGestureIndication : List (Html.Html a)
     dragGestureIndication =
-      case (viewport.dragStartJointId |> Maybe.andThen (\dragStartJointId -> scenario.supportJoints |> Dict.get dragStartJointId), viewport.mouseLocationInWorld) of
+      case (viewport.dragStartJointId |> Maybe.andThen jointLocationFromId, viewport.mouseLocationInWorld) of
       (Just dragStartLocation, Just mouseLocationInWorld) ->
-        Svg.line ((Visuals.svgListAttributesFromStartAndEnd dragStartLocation mouseLocationInWorld) |> List.append [style dragGestureIndicationLineStyle]) [] |> List.singleton
+        [ componentView (dragStartLocation, mouseLocationInWorld) ]
       _ -> []
+
+    componentsViews =
+      scenario.components
+      |> List.filterMap (\(startJointId, endJointId) ->
+        case (jointLocationFromId startJointId, jointLocationFromId endJointId) of
+        (Just startLocation, Just endLocation) -> Just (componentView (startLocation, endLocation))
+        _ -> Nothing)
 
     inputElement : Html.Html Msg
     inputElement =
@@ -58,26 +67,34 @@ view scenario viewport =
     Svg.svg [ SA.width "400", SA.height "400", style viewportStyle ]
     [
       supportJointsViews |> Svg.g [],
+      componentsViews |> Svg.g [],
       dragGestureIndication |> Svg.g [],
       inputElement
     ]
 
-update : Msg -> Scenario.Model -> Model -> Model
+update : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
 update msg scenario viewport =
   case msg of
   MouseEvent mouseEvent ->
     let
-      eventTypeSpecificTransform : Model -> Model
+      eventTypeSpecificTransform : Model -> (Model, List Scenario.FromPlayerMsg)
       eventTypeSpecificTransform =
         case mouseEvent.eventType of
-        Console.MouseDown -> (\viewport -> { viewport | dragStartJointId = getIdOfJointUnderMouse scenario viewport })
-        Console.MouseUp -> (\viewport -> { viewport | dragStartJointId = Nothing })
-        _ -> identity
+        Console.MouseDown -> (\viewport -> ({ viewport | dragStartJointId = getIdOfJointUnderMouse scenario viewport }, []))
+        Console.MouseUp ->
+          let
+            toScenarioMessage =
+              case (viewport.dragStartJointId, getIdOfJointUnderMouse scenario viewport) of
+              (Just startJointId, Just endJointId) -> [ Scenario.BuildComponent startJointId endJointId ]
+              _ -> []
+          in
+            (\viewport -> ({ viewport | dragStartJointId = Nothing }, toScenarioMessage))
+        _ -> (\viewport -> (viewport, []))
 
       viewportAfterMouseMove = { viewport | mouseLocationInWorld = Just mouseEvent.offset }
     in
       eventTypeSpecificTransform { viewportAfterMouseMove | mouseLocationInWorld = Just mouseEvent.offset }
-  Error error -> viewport
+  Error error -> (viewport, [])
 
 getIdOfJointUnderMouse : Scenario.Model -> Model -> Maybe JointId
 getIdOfJointUnderMouse scenario viewport =
@@ -95,12 +112,16 @@ jointView isMouseOver =
   in
     [ Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle diameter) ] []]
 
+componentView : (Float2, Float2) -> Html.Html a
+componentView (startLocation, endLocation) =
+  Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style componentLineStyle]) []
+
 jointStyle : Float -> HtmlStyle
 jointStyle diameter =
   [("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px")]
 
-dragGestureIndicationLineStyle : HtmlStyle
-dragGestureIndicationLineStyle = [("stroke","whitesmoke"),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6")]
+componentLineStyle : HtmlStyle
+componentLineStyle = [("stroke","whitesmoke"),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6")]
 
 viewportStyle : HtmlStyle
 viewportStyle =

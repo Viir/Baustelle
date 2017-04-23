@@ -22,7 +22,8 @@ init =
   {
     scenario =
     {
-      supportJoints = [ (100,100), (300,100) ] |> dictFromListWithIndexAsKey
+      supportJoints = [ (100,100), (300,100) ] |> dictFromListWithIndexAsKey,
+      components = []
     },
     viewport = ScenarioViewport.defaultViewport
   }
@@ -35,5 +36,11 @@ view model =
 update : Msg -> Model -> Model
 update msg model =
   case msg of
-  SiteViewport viewportMsg -> { model | viewport = (ScenarioViewport.update viewportMsg model.scenario model.viewport) }
+  SiteViewport viewportMsg ->
+    let
+      (viewport, listToGameInput) = (ScenarioViewport.update viewportMsg model.scenario model.viewport)
+      scenario =
+        model.scenario |> withListTransformApplied (listToGameInput |> List.map Scenario.updateForPlayerInput)
+    in
+      { model | scenario = scenario, viewport = viewport }
 
