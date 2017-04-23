@@ -49,14 +49,14 @@ view scenario viewport =
     dragGestureIndication =
       case (viewport.dragStartJointId |> Maybe.andThen jointLocationFromId, viewport.mouseLocationInWorld) of
       (Just dragStartLocation, Just mouseLocationInWorld) ->
-        [ componentView (dragStartLocation, mouseLocationInWorld) ]
+        [ componentView False (dragStartLocation, mouseLocationInWorld) ]
       _ -> []
 
     componentsViews =
       scenario.components
       |> List.filterMap (\(startJointId, endJointId) ->
         case (jointLocationFromId startJointId, jointLocationFromId endJointId) of
-        (Just startLocation, Just endLocation) -> Just (componentView (startLocation, endLocation))
+        (Just startLocation, Just endLocation) -> Just (componentView True (startLocation, endLocation))
         _ -> Nothing)
 
     inputElement : Html.Html Msg
@@ -112,16 +112,20 @@ jointView isMouseOver =
   in
     [ Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle diameter) ] []]
 
-componentView : (Float2, Float2) -> Html.Html a
-componentView (startLocation, endLocation) =
-  Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style componentLineStyle]) []
+componentView : Bool -> (Float2, Float2) -> Html.Html a
+componentView isBuilt (startLocation, endLocation) =
+  Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style (componentLineStyle isBuilt)]) []
 
 jointStyle : Float -> HtmlStyle
 jointStyle diameter =
   [("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px")]
 
-componentLineStyle : HtmlStyle
-componentLineStyle = [("stroke","whitesmoke"),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6")]
+componentLineStyle : Bool -> HtmlStyle
+componentLineStyle isBuilt =
+  [
+    ("stroke","whitesmoke"),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6"),
+    ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
+  ]
 
 viewportStyle : HtmlStyle
 viewportStyle =
