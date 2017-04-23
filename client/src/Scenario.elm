@@ -29,11 +29,23 @@ type FromPlayerMsg
   = BuildComponent JointId JointId
   | TempSupportForJoint JointId Float2
 
+type alias ScenarioConfig =
+  {
+    gravitation : Float2,
+    maintainComponentLengthForceFactor : Float,
+    dampFactor : Float
+  }
+
+config : ScenarioConfig
+config =
+  {
+    gravitation = (0, 1e-4),
+    maintainComponentLengthForceFactor = 3e-2,
+    dampFactor = 1e-3
+  }
+
 updateStepDuration : Int
 updateStepDuration = 10
-
-gravitationFactor : Float
-gravitationFactor = 1e-4
 
 progress : Int -> Model -> Model
 progress duration scenario =
@@ -48,7 +60,8 @@ updateStep : Int -> Model -> Model
 updateStep duration scenario =
   let
     durationFloat = duration |> toFloat
-    acceleration = (0, 1) |> Vector2.scale (gravitationFactor * durationFloat)
+
+    gravitationAcceleration = config.gravitation |> Vector2.scale durationFloat
 
     jointsFromSupport : Dict.Dict JointId Joint
     jointsFromSupport =
@@ -80,12 +93,16 @@ updateStep duration scenario =
           connectedComponentsForceSum =
             connectedComponentsForce |> Dict.values |> List.foldl (\c0 c1 -> Vector2.add c0 c1) (0, 0)
           
-          supportForce = (0,0)
+          combinedAcceleration = gravitationAcceleration |> Vector2.add connectedComponentsForceSum
 
-          combinedForce = acceleration |> Vector2.add connectedComponentsForceSum |> Vector2.add supportForce
+          dampFactor = (1 + config.dampFactor) ^ durationFloat
+
+          velocity =
+            joint.velocity |> Vector2.add combinedAcceleration |> Vector2.scale (1 / dampFactor)
+
           jointLocation = joint.location |> Vector2.add (joint.velocity |> Vector2.scale durationFloat)
         in
-          { joint | location = jointLocation, velocity = joint.velocity |> Vector2.add combinedForce })
+          { joint | location = jointLocation, velocity = velocity })
   in
     { scenario | joints = joints }
 
