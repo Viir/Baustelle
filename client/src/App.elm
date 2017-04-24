@@ -26,7 +26,7 @@ init =
     timeMilli = 0,
     scenario =
       ScenarioConstruction.emptyScenario
-      |> ScenarioConstruction.withPermSupportAddedAtLocations [(100,100), (300,100)],
+      |> ScenarioConstruction.withPermSupportAddedAtLocations [(100,300),(100,400),(700,300),(700,400)],
     viewport = ScenarioViewport.defaultViewport
   }, Cmd.none)
 

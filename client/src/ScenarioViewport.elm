@@ -78,7 +78,7 @@ viewWithScenarioUpdated scenario viewport =
       Svg.rect ([ SA.width "9999", SA.height "9999", SA.fill "transparent" ] |> List.append Console.setMouseEventAttribute) []
       |> Html.map (\maybeEvent -> maybeEvent |> Maybe.andThen (\event -> Just (MouseEvent event)) |> Maybe.withDefault (Error "mouse event"))
   in
-    Svg.svg [ SA.width "400", SA.height "400", style viewportStyle ]
+    Svg.svg [ SA.width "800", SA.height "600", style viewportStyle ]
     [
       jointsViews |> Svg.g [],
       componentsViews |> Svg.g [],

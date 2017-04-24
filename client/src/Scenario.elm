@@ -44,7 +44,7 @@ config =
   {
     gravitation = (0, 1e-4),
     maintainComponentLengthForceFactor = 3e-2,
-    dampFactor = 1e-3,
+    dampFactor = 3e-3,
     componentFailThreshold = 0.3
   }
 
@@ -90,7 +90,9 @@ updateStep duration scenario =
                     let
                       componentLength = joint.location |> Vector2.distance otherJoint.location
                       expansionForce = component.builtLength / componentLength - 1
-                      forceToMaintainLength = Vector2.directionFromTo otherJoint.location joint.location |> Vector2.scale (expansionForce * 1e-2)
+                      forceToMaintainLength =
+                        Vector2.directionFromTo otherJoint.location joint.location
+                        |> Vector2.scale (expansionForce * config.maintainComponentLengthForceFactor)
                     in
                       forceToMaintainLength)
 
