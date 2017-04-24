@@ -3,6 +3,8 @@ module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateFo
 import Base exposing (..)
 import Vector2 exposing (Float2)
 import Dict
+import Set
+
 
 type alias JointId = Int
 
@@ -43,7 +45,7 @@ config =
     gravitation = (0, 1e-4),
     maintainComponentLengthForceFactor = 3e-2,
     dampFactor = 1e-3,
-    componentFailThreshold = 0.16
+    componentFailThreshold = 0.3
   }
 
 updateStepDuration : Int
@@ -107,6 +109,30 @@ updateStep duration scenario =
           { joint | location = jointLocation, velocity = velocity })
   in
     { scenario | joints = joints }
+    |> removeJointsOutsideScenario |> updateForFailure
+
+removeJointsOutsideScenario : Model -> Model
+removeJointsOutsideScenario scenario =
+  { scenario | joints = scenario.joints |> Dict.filter (\_ joint -> locationIsInsideScenario joint.location)}
+
+updateForFailure : Model -> Model
+updateForFailure scenario =
+  let
+    remainingComponents =
+      scenario.components
+      |> Dict.filter (\jointsIds component ->
+        stressFactorFromComponent scenario jointsIds |> Maybe.andThen (\stressFactor -> Just (stressFactor < 1)) |> Maybe.withDefault False)
+
+    remainingComponentsKeys = remainingComponents |> Dict.keys
+
+    supportJointsIds = [ scenario.permSupport |> Dict.keys, scenario.tempSupport |> Dict.keys ] |> List.concat |> Set.fromList
+
+    remainingJoints =
+      scenario.joints
+      |> Dict.filter (\jointId joint ->
+        (supportJointsIds |> Set.member jointId) || (remainingComponentsKeys |> List.any (\(joint0Id, joint1Id) -> joint0Id == jointId || joint1Id == jointId)))
+  in
+    { scenario | components = remainingComponents }
 
 updateForPlayerInputs : List FromPlayerMsg -> Model -> Model
 updateForPlayerInputs listFromPlayerInput scenario =
@@ -151,3 +177,6 @@ stressFactorFromComponent scenario joints =
     in
       Just ((abs stretchFactor) / config.componentFailThreshold)
   _ -> Nothing
+
+locationIsInsideScenario : Float2 -> Bool
+locationIsInsideScenario (x, y) = y < 1111
