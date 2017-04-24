@@ -23,6 +23,15 @@ type alias Model =
     dragStartJointId : Maybe JointId
   }
 
+type alias JointViewModel =
+  {
+    isBuilt : Bool,
+    isMouseOver : Bool,
+    supportType : JointSupportType
+  }
+
+type JointSupportType = None | Temp | Perm
+
 defaultViewport : Model
 defaultViewport =
   {
@@ -31,7 +40,7 @@ defaultViewport =
   }
 
 jointViewDiameter : Float
-jointViewDiameter = 8
+jointViewDiameter = 6
 
 view : Scenario.Model -> Model -> Html.Html Msg
 view scenarioBeforeUpdate viewport =
@@ -56,8 +65,9 @@ viewWithScenarioUpdated scenario viewport =
         let
           isBuilt = scenario.joints |> Dict.member jointId
           isMouseOver = getIdOfJointUnderMouse scenario viewport == Just jointId
+          supportType = getSupportTypeFromJointId scenarioAfterMouseUpEvent jointId
         in
-          jointView isBuilt (isMouseOver && isBuilt) joint.location)
+          jointView { isBuilt = isBuilt, isMouseOver = (isMouseOver && isBuilt), supportType = supportType } joint.location)
       |> Dict.values
 
     componentsViews =
@@ -154,23 +164,47 @@ getIdOfJointForInteractionFromLocation scenario location =
   |> Dict.filter (\_ joint -> Vector2.distance joint.location location < jointViewDiameter * 2)
   |> Dict.keys |> List.head
 
-jointView : Bool -> Bool -> Float2 -> Html.Html a
-jointView isBuilt isMouseOver location =
+jointView : JointViewModel -> Float2 -> Html.Html a
+jointView viewmodel location =
   let
-    diameter = jointViewDiameter * (1 + (if isMouseOver then 0.3 else 0))
+    diameter = jointViewDiameter * (1 + (if viewmodel.isMouseOver then 0.3 else 0))
+
+    supportIndicationCircleScale =
+      case viewmodel.supportType of
+      None -> Nothing
+      Temp -> Just 1.6
+      Perm -> Just 1.9
+
+    supportIndicationVisuals =
+      case supportIndicationCircleScale of
+      Nothing -> []
+      Just scale -> [ jointViewCircle 0.3 viewmodel.isBuilt (diameter * scale) ]
   in
-    [ Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle isBuilt diameter) ] []]
-    |> svgGroupWithTranslationAndElements location
+    [
+      [ jointViewCircle 1 viewmodel.isBuilt diameter ],
+      supportIndicationVisuals
+    ] |> List.concat |> svgGroupWithTranslationAndElements location
+
+jointViewCircle : Float -> Bool -> Float -> Html.Html a
+jointViewCircle strokeWidthFactor isBuilt diameter =
+  Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle isBuilt (diameter * strokeWidthFactor)) ] []
 
 componentView : Bool -> Float -> (Float2, Float2) -> Html.Html a
 componentView isBuilt stressFactor (startLocation, endLocation) =
   Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style (componentLineStyle isBuilt stressFactor)]) []
 
+getSupportTypeFromJointId : Scenario.Model -> JointId -> JointSupportType
+getSupportTypeFromJointId scenario jointId =
+  [ (scenario.permSupport, Perm), (scenario.tempSupport, Temp) ]
+  |> List.filterMap (\(supportedSetDict, supportType) -> if supportedSetDict |> Dict.keys |> List.member jointId then Just supportType else Nothing)
+  |> List.head |> Maybe.withDefault None
+
 jointStyle : Bool -> Float -> HtmlStyle
-jointStyle isBuilt diameter =
+jointStyle isBuilt strokeWidthFactor =
   [
-    ("stroke","whitesmoke"),("stroke-opacity","0.7"),("stroke-width", (diameter / 3 |> toString) ++ "px"),
-    ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
+    ("stroke","whitesmoke"),("stroke-opacity","0.6"),("stroke-width", (strokeWidthFactor / 3 |> toString) ++ "px"),
+    ("stroke-dasharray", if isBuilt then "inherit" else (strokeWidthFactor / 2 |> toString)),
+    ("fill","none")
   ]
 
 componentLineStyle : Bool -> Float -> HtmlStyle
@@ -179,7 +213,7 @@ componentLineStyle isBuilt stressFactor =
     color = Color.hsla 0 (stressFactor |> min 1 |> max 0) 0.5 0.8
   in
     [
-      ("stroke", color |> Color.Convert.colorToCssRgba),("stroke-width", (jointViewDiameter / 3 |> toString) ++ "px"),("stroke-opacity","0.6"),
+      ("stroke", color |> Color.Convert.colorToCssRgba),("stroke-width", (jointViewDiameter / 2 |> toString) ++ "px"),("stroke-opacity","0.6"),
       ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
     ]
 
