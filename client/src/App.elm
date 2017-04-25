@@ -26,7 +26,14 @@ init =
     timeMilli = 0,
     scenario =
       ScenarioConstruction.emptyScenario
-      |> ScenarioConstruction.withPermSupportAddedAtLocations [(100,300),(100,400),(700,300),(700,400)],
+      |> ScenarioConstruction.withTempSupportRange 150
+      |> ScenarioConstruction.withPermSupportAddedAtLocations
+        [
+          ((100,300), True),
+          ((100,400), False),
+          ((700,300), False),
+          ((700,400), False)
+        ],
     viewport = ScenarioViewport.defaultViewport
   }, Cmd.none)
 

@@ -9,6 +9,7 @@ import Svg
 import Svg.Attributes as SA
 import Vector2 exposing (Float2)
 import Dict
+import Set
 import Color
 import Color.Convert
 
@@ -25,9 +26,12 @@ type alias Model =
 
 type alias JointViewModel =
   {
+    diameter : Float,
     isBuilt : Bool,
-    isMouseOver : Bool,
-    supportType : JointSupportType
+    indicateInteractivity : Bool,
+    isReached : Bool,
+    supportType : JointSupportType,
+    strokeWidth : Float
   }
 
 type JointSupportType = None | Temp | Perm
@@ -39,8 +43,8 @@ defaultViewport =
     dragStartJointId = Nothing
   }
 
-jointViewDiameter : Float
-jointViewDiameter = 6
+jointViewDiameterDefault : Float
+jointViewDiameterDefault = 6
 
 view : Scenario.Model -> Model -> Html.Html Msg
 view scenarioBeforeUpdate viewport =
@@ -49,7 +53,11 @@ view scenarioBeforeUpdate viewport =
 viewWithScenarioUpdated : Scenario.Model -> Model -> Html.Html Msg
 viewWithScenarioUpdated scenario viewport =
   let
-    scenarioAfterMouseUpEvent = getScenarioAfterMouseUpEvent scenario viewport
+    resultFromMouseEventAtCurrentLocation = getResultFromMouseEventAtCurrentLocation scenario viewport
+    (scenarioAfterMouseUpEvent, _) = resultFromMouseEventAtCurrentLocation Console.MouseUp
+    (_, viewportAfterMouseDownEvent) = resultFromMouseEventAtCurrentLocation Console.MouseDown
+
+    reachedJointsIds = Scenario.getAllReachedJointsIds scenario
 
     jointLocationFromId jointId = scenarioAfterMouseUpEvent.joints |> Dict.get jointId
 
@@ -64,10 +72,18 @@ viewWithScenarioUpdated scenario viewport =
       |> Dict.map (\jointId joint ->
         let
           isBuilt = scenario.joints |> Dict.member jointId
-          isMouseOver = getIdOfJointUnderMouse scenario viewport == Just jointId
+          indicateInteractivity = viewportAfterMouseDownEvent.dragStartJointId == Just jointId
           supportType = getSupportTypeFromJointId scenarioAfterMouseUpEvent jointId
         in
-          jointView { isBuilt = isBuilt, isMouseOver = (isMouseOver && isBuilt), supportType = supportType } joint.location)
+          jointView
+            {
+              diameter = jointViewDiameterDefault,
+              isBuilt = isBuilt,
+              indicateInteractivity = (indicateInteractivity && isBuilt),
+              supportType = supportType,
+              isReached = reachedJointsIds |> Set.member jointId,
+              strokeWidth = jointViewDiameterDefault / 16
+            } joint.location)
       |> Dict.values
 
     componentsViews =
@@ -107,7 +123,15 @@ updateWithScenarioUpdated msg scenario viewport =
       eventTypeSpecificTransform : Model -> (Model, List Scenario.FromPlayerMsg)
       eventTypeSpecificTransform =
         case mouseEvent.eventType of
-        Console.MouseDown -> (\viewport -> ({ viewport | dragStartJointId = getIdOfJointUnderMouse scenario viewport }, []))
+        Console.MouseDown ->
+          let
+            dragStartJointId =
+              case getIdOfJointUnderMouse scenario viewport of
+              Nothing -> Nothing
+              Just jointUnderMouseId ->
+                if Scenario.getAllReachedJointsIds scenario |> Set.member jointUnderMouseId then Just jointUnderMouseId else Nothing
+          in
+            (\viewport -> ({ viewport | dragStartJointId = dragStartJointId }, []))
         Console.MouseUp ->
           let
             toScenarioMessage =
@@ -132,25 +156,25 @@ updateWithScenarioUpdated msg scenario viewport =
       eventTypeSpecificTransform { viewportAfterMouseMove | mouseLocationInWorld = Just mouseEvent.offset }
   Error error -> (viewport, [])
 
-getMouseLeftButtonUpEventForOffset : Float2 -> Console.MouseEvent
-getMouseLeftButtonUpEventForOffset offset =
+getMouseLeftButtonEventForOffset : Console.MouseEventType -> Float2 -> Console.MouseEvent
+getMouseLeftButtonEventForOffset eventType offset =
   {
     button = Console.Left,
-    eventType = Console.MouseUp,
+    eventType = eventType,
     offset = offset,
     wheelDelta = (0,0)
   }
 
-getScenarioAfterMouseUpEvent : Scenario.Model -> Model -> Scenario.Model
-getScenarioAfterMouseUpEvent scenario viewport =
+getResultFromMouseEventAtCurrentLocation : Scenario.Model -> Model -> Console.MouseEventType -> (Scenario.Model, Model)
+getResultFromMouseEventAtCurrentLocation scenario viewport eventType =
   let
-    toScenarioInput =
+    (resultViewport, toScenarioInput) =
       case viewport.mouseLocationInWorld of
-      Nothing -> []
+      Nothing -> (viewport, [])
       Just mouseLocationInWorld ->
-        update (MouseEvent (getMouseLeftButtonUpEventForOffset mouseLocationInWorld)) scenario viewport |> Tuple.second
+        update (MouseEvent (getMouseLeftButtonEventForOffset eventType mouseLocationInWorld)) scenario viewport
   in
-    Scenario.updateForPlayerInputs toScenarioInput scenario
+    (Scenario.updateForPlayerInputs toScenarioInput scenario, resultViewport)
 
 getIdOfJointUnderMouse : Scenario.Model -> Model -> Maybe JointId
 getIdOfJointUnderMouse scenario viewport =
@@ -161,13 +185,13 @@ getIdOfJointUnderMouse scenario viewport =
 getIdOfJointForInteractionFromLocation : Scenario.Model -> Float2 -> Maybe JointId
 getIdOfJointForInteractionFromLocation scenario location =
   scenario.joints
-  |> Dict.filter (\_ joint -> Vector2.distance joint.location location < jointViewDiameter * 2)
+  |> Dict.filter (\_ joint -> Vector2.distance joint.location location < jointViewDiameterDefault * 2)
   |> Dict.keys |> List.head
 
 jointView : JointViewModel -> Float2 -> Html.Html a
 jointView viewmodel location =
   let
-    diameter = jointViewDiameter * (1 + (if viewmodel.isMouseOver then 0.3 else 0))
+    diameter = viewmodel.diameter * (1 + (if viewmodel.indicateInteractivity then 0.3 else 0))
 
     supportIndicationCircleScale =
       case viewmodel.supportType of
@@ -178,16 +202,16 @@ jointView viewmodel location =
     supportIndicationVisuals =
       case supportIndicationCircleScale of
       Nothing -> []
-      Just scale -> [ jointViewCircle 0.3 viewmodel.isBuilt (diameter * scale) ]
+      Just scale -> [ jointViewCircle { viewmodel | diameter = diameter * scale, strokeWidth = viewmodel.strokeWidth * 0.3} ]
   in
     [
-      [ jointViewCircle 1 viewmodel.isBuilt diameter ],
+      [ jointViewCircle { viewmodel | diameter = diameter } ],
       supportIndicationVisuals
     ] |> List.concat |> svgGroupWithTranslationAndElements location
 
-jointViewCircle : Float -> Bool -> Float -> Html.Html a
-jointViewCircle strokeWidthFactor isBuilt diameter =
-  Svg.circle [ SA.r ((diameter |> toString) ++ "px"), style (jointStyle isBuilt (diameter * strokeWidthFactor)) ] []
+jointViewCircle : JointViewModel -> Html.Html a
+jointViewCircle viewModel =
+  Svg.circle [ SA.r ((viewModel.diameter |> toString) ++ "px"), style (jointStyle viewModel ) ] []
 
 componentView : Bool -> Float -> (Float2, Float2) -> Html.Html a
 componentView isBuilt stressFactor (startLocation, endLocation) =
@@ -199,11 +223,13 @@ getSupportTypeFromJointId scenario jointId =
   |> List.filterMap (\(supportedSetDict, supportType) -> if supportedSetDict |> Dict.keys |> List.member jointId then Just supportType else Nothing)
   |> List.head |> Maybe.withDefault None
 
-jointStyle : Bool -> Float -> HtmlStyle
-jointStyle isBuilt strokeWidthFactor =
+jointStyle : JointViewModel -> HtmlStyle
+jointStyle viewModel =
   [
-    ("stroke","whitesmoke"),("stroke-opacity","0.6"),("stroke-width", (strokeWidthFactor / 3 |> toString) ++ "px"),
-    ("stroke-dasharray", if isBuilt then "inherit" else (strokeWidthFactor / 2 |> toString)),
+    ("stroke","whitesmoke"),
+    ("stroke-opacity", (if viewModel.isReached then 0.6 else 0.2) |> toString),
+    ("stroke-width", (viewModel.strokeWidth * viewModel.diameter |> toString) ++ "px"),
+    ("stroke-dasharray", if viewModel.isBuilt then "inherit" else (viewModel.strokeWidth * viewModel.diameter |> toString)),
     ("fill","none")
   ]
 
@@ -213,8 +239,8 @@ componentLineStyle isBuilt stressFactor =
     color = Color.hsla 0 (stressFactor |> min 1 |> max 0) 0.5 0.8
   in
     [
-      ("stroke", color |> Color.Convert.colorToCssRgba),("stroke-width", (jointViewDiameter / 2 |> toString) ++ "px"),("stroke-opacity","0.6"),
-      ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameter / 2 |> toString))
+      ("stroke", color |> Color.Convert.colorToCssRgba),("stroke-width", (jointViewDiameterDefault / 2 |> toString) ++ "px"),("stroke-opacity","0.6"),
+      ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameterDefault / 2 |> toString))
     ]
 
 viewportStyle : HtmlStyle

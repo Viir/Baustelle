@@ -1,4 +1,4 @@
-module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateForPlayerInputs, stressFactorFromComponent)
+module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromComponent)
 
 import Base exposing (..)
 import Vector2 exposing (Float2)
@@ -13,7 +13,9 @@ type alias Model =
     joints : Dict.Dict JointId Joint,
     components : Dict.Dict (JointId, JointId) Component,
     permSupport : Dict.Dict JointId Float2,
-    tempSupport : Dict.Dict JointId Float2
+    tempSupport : Dict.Dict JointId Float2,
+    outsetJoints : Set.Set JointId,
+    tempSupportRange : Float
   }
 
 type alias Joint =
@@ -134,7 +136,7 @@ updateForFailure scenario =
       |> Dict.filter (\jointId joint ->
         (supportJointsIds |> Set.member jointId) || (remainingComponentsKeys |> List.any (\(joint0Id, joint1Id) -> joint0Id == jointId || joint1Id == jointId)))
   in
-    { scenario | components = remainingComponents }
+    { scenario | components = remainingComponents, joints = remainingJoints }
 
 updateForPlayerInputs : List FromPlayerMsg -> Model -> Model
 updateForPlayerInputs listFromPlayerInput scenario =
@@ -144,7 +146,7 @@ updateForPlayerInput : FromPlayerMsg -> Model -> Model
 updateForPlayerInput msg scenario =
   case msg of
   BuildComponent startJointId endJointId ->
-    if startJointId == endJointId
+    if startJointId == endJointId || (getAllReachedJointsIds scenario |> Set.member startJointId |> not)
     then scenario
     else
       case distanceFromJointsInScenario scenario (startJointId, endJointId) of
@@ -159,9 +161,18 @@ updateForPlayerInput msg scenario =
     then scenario -- We do not support changing location of existing joints using this imput.
     else
       let
-        tempSupport = Dict.singleton jointId supportLocation -- Only one temp support is allowed for a given point in time.
+        locationIsInRange =
+          getAllReachedJointsIds scenario |> Set.toList
+          |> List.filterMap (\jointId -> scenario.joints |> Dict.get jointId)
+          |> List.any (\joint -> (joint.location |> Vector2.distance supportLocation) < scenario.tempSupportRange)
       in
-        { scenario | tempSupport = tempSupport }
+        if not locationIsInRange
+        then scenario
+        else
+          let
+            tempSupport = Dict.singleton jointId supportLocation -- Only one temp support is allowed for a given point in time.
+          in
+            { scenario | tempSupport = tempSupport }
     |> progress 0
 
 distanceFromJointsInScenario : Model -> (JointId, JointId) -> Maybe Float
@@ -179,6 +190,24 @@ stressFactorFromComponent scenario joints =
     in
       Just ((abs stretchFactor) / config.componentFailThreshold)
   _ -> Nothing
+
+getAllReachedJointsIds : Model -> Set.Set JointId
+getAllReachedJointsIds scenario =
+  getAllReachedJointsIdsFromOutset (scenario.components |> Dict.keys) scenario.outsetJoints
+    
+getAllReachedJointsIdsFromOutset : List (JointId, JointId) -> Set.Set JointId -> Set.Set JointId
+getAllReachedJointsIdsFromOutset connectedJoints outsetJointsIds =
+  let
+    nextStepReachableJointsIds =
+      connectedJoints |> List.filterMap (\(joint0Id, joint1Id) ->
+        if outsetJointsIds |> Set.member joint0Id then Just joint1Id
+        else if outsetJointsIds |> Set.member joint1Id then Just joint0Id
+        else Nothing)
+      |> Set.fromList |> Set.union outsetJointsIds
+  in
+    if nextStepReachableJointsIds == outsetJointsIds
+    then outsetJointsIds
+    else getAllReachedJointsIdsFromOutset connectedJoints nextStepReachableJointsIds
 
 locationIsInsideScenario : Float2 -> Bool
 locationIsInsideScenario (x, y) = y < 1111
