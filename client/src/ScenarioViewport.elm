@@ -117,12 +117,20 @@ viewWithScenarioUpdated scenario viewport =
     inputElement =
       Svg.rect ([ SA.width "9999", SA.height "9999", SA.fill "transparent" ] |> List.append (Console.setMouseEventAttributeWithOffsetMapped mouseEventOffsetTransform)) []
       |> Html.map (\maybeEvent -> maybeEvent |> Maybe.andThen (\event -> Just (MouseEvent event)) |> Maybe.withDefault (Error "mouse event"))
+
+    heightLines =
+      [
+        [ heightLineView (viewportWidth * 0.8) scenario.maxHeightRecord ],
+        if scenarioAfterMouseUpEvent.maxHeightRecord /= scenario.maxHeightRecord
+        then [ heightLineView (viewportWidth * 0.8) scenarioAfterMouseUpEvent.maxHeightRecord |> List.singleton |> Svg.g [ style [("opacity","0.5")]] ]
+        else []
+      ] |> List.concat
   in
     [
       [
         jointsViews |> Svg.g [],
         componentsViews |> Svg.g [],
-        heightLineView (viewportWidth * 0.8) scenario.maxHeightRecord
+        heightLines |> Svg.g []
       ]
       |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"] |> List.singleton
       |> Visuals.svgGroupWithTranslationAndElements cameraTranslation,
