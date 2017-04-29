@@ -28,12 +28,7 @@ init =
       ScenarioConstruction.emptyScenario
       |> ScenarioConstruction.withTempSupportRange 150
       |> ScenarioConstruction.withPermSupportAddedAtLocations
-        [
-          ((100,300), True),
-          ((100,400), False),
-          ((700,300), False),
-          ((700,400), False)
-        ],
+        (List.range 0 3 |> List.map (\i -> ((i * 150 - 225 |> toFloat, 0), True))),
     viewport = ScenarioViewport.defaultViewport
   }, Cmd.none)
 

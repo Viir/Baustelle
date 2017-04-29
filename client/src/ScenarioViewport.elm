@@ -50,6 +50,12 @@ view : Scenario.Model -> Model -> Html.Html Msg
 view scenarioBeforeUpdate viewport =
   viewWithScenarioUpdated (scenarioBeforeUpdate |> Scenario.progress 0) viewport
 
+viewportSize : Float2
+viewportSize = (800, 600)
+
+cameraTranslation : Float2
+cameraTranslation = ((viewportSize |> Tuple.first) / 2, (viewportSize |> Tuple.second) - 100)
+
 viewWithScenarioUpdated : Scenario.Model -> Model -> Html.Html Msg
 viewWithScenarioUpdated scenario viewport =
   let
@@ -99,17 +105,39 @@ viewWithScenarioUpdated scenario viewport =
             Just (componentView isBuilt stressFactor location))
       |> Dict.values |> List.filterMap identity
 
+    mouseEventOffsetTransform eventOffset =
+      let
+        (translatedX, translatedY) = Vector2.sub eventOffset cameraTranslation
+      in
+        (translatedX, -translatedY)
+
+    (viewportWidth, viewportHeight) = viewportSize
+
     inputElement : Html.Html Msg
     inputElement =
-      Svg.rect ([ SA.width "9999", SA.height "9999", SA.fill "transparent" ] |> List.append Console.setMouseEventAttribute) []
+      Svg.rect ([ SA.width "9999", SA.height "9999", SA.fill "transparent" ] |> List.append (Console.setMouseEventAttributeWithOffsetMapped mouseEventOffsetTransform)) []
       |> Html.map (\maybeEvent -> maybeEvent |> Maybe.andThen (\event -> Just (MouseEvent event)) |> Maybe.withDefault (Error "mouse event"))
   in
-    Svg.svg [ SA.width "800", SA.height "600", style viewportStyle ]
     [
-      jointsViews |> Svg.g [],
-      componentsViews |> Svg.g [],
+      [
+        jointsViews |> Svg.g [],
+        componentsViews |> Svg.g [],
+        heightLineView (viewportWidth * 0.8) scenario.maxHeightRecord
+      ]
+      |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"] |> List.singleton
+      |> Visuals.svgGroupWithTranslationAndElements cameraTranslation,
       inputElement
     ]
+    |> Svg.svg [ SA.width (viewportWidth |> toString), SA.height (viewportHeight |> toString), style viewportStyle ]
+
+heightLineView : Float -> Float -> Html.Html a
+heightLineView horizontalExtend height =
+  [
+    Svg.line (Visuals.svgListAttributesFromStartAndEnd (-horizontalExtend * 0.5, 0) (horizontalExtend * 0.5, 0) |> List.append [ style heightLineStyle] ) []
+  ] |> svgGroupWithTranslationAndElements (0, height)
+
+heightLineStyle : HtmlStyle
+heightLineStyle = [ ("stroke","whitesmoke"),("stroke-width","3px"),("stroke-opacity","0.18"),("stroke-dasharray","4")]
 
 update : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
 update msg scenarioBeforeUpdate viewport =

@@ -16,7 +16,8 @@ emptyScenario =
         tempSupport = Dict.empty,
         components = Dict.empty,
         outsetJoints = Set.empty,
-        tempSupportRange = 0
+        tempSupportRange = 0,
+        maxHeightRecord = -9999
     }
 
 withPermSupportAddedAtLocations : List (Float2, Bool) -> Scenario.Model -> Scenario.Model

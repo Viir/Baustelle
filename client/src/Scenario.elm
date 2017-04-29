@@ -15,7 +15,8 @@ type alias Model =
     permSupport : Dict.Dict JointId Float2,
     tempSupport : Dict.Dict JointId Float2,
     outsetJoints : Set.Set JointId,
-    tempSupportRange : Float
+    tempSupportRange : Float,
+    maxHeightRecord : Float
   }
 
 type alias Joint =
@@ -35,7 +36,7 @@ type FromPlayerMsg
 
 type alias ScenarioConfig =
   {
-    gravitation : Float2,
+    gravity : Float2,
     maintainComponentLengthForceFactor : Float,
     dampFactor : Float,
     componentFailThreshold : Float
@@ -44,7 +45,7 @@ type alias ScenarioConfig =
 config : ScenarioConfig
 config =
   {
-    gravitation = (0, 1e-4),
+    gravity = (0, -1e-4),
     maintainComponentLengthForceFactor = 3e-2,
     dampFactor = 3e-3,
     componentFailThreshold = 0.3
@@ -67,7 +68,7 @@ updateStep duration scenario =
   let
     durationFloat = duration |> toFloat
 
-    gravitationAcceleration = config.gravitation |> Vector2.scale durationFloat
+    gravityAcceleration = config.gravity |> Vector2.scale durationFloat
 
     jointsFromSupport : Dict.Dict JointId Joint
     jointsFromSupport =
@@ -100,8 +101,8 @@ updateStep duration scenario =
 
           connectedComponentsForceSum =
             connectedComponentsForce |> Dict.values |> List.foldl (\c0 c1 -> Vector2.add c0 c1) (0, 0)
-          
-          combinedAcceleration = gravitationAcceleration |> Vector2.add connectedComponentsForceSum
+
+          combinedAcceleration = gravityAcceleration |> Vector2.add connectedComponentsForceSum
 
           dampFactor = (1 + config.dampFactor) ^ durationFloat
 
@@ -111,9 +112,14 @@ updateStep duration scenario =
           jointLocation = joint.location |> Vector2.add (joint.velocity |> Vector2.scale durationFloat)
         in
           { joint | location = jointLocation, velocity = velocity })
+
+    afterMechanics =
+      { scenario | joints = joints }
+      |> removeJointsOutsideScenario |> updateForFailure
+
+    maxHeightRecord = getCurrentBuildingHeight afterMechanics |> max afterMechanics.maxHeightRecord
   in
-    { scenario | joints = joints }
-    |> removeJointsOutsideScenario |> updateForFailure
+    { afterMechanics | maxHeightRecord = maxHeightRecord }
 
 removeJointsOutsideScenario : Model -> Model
 removeJointsOutsideScenario scenario =
@@ -194,7 +200,7 @@ stressFactorFromComponent scenario joints =
 getAllReachedJointsIds : Model -> Set.Set JointId
 getAllReachedJointsIds scenario =
   getAllReachedJointsIdsFromOutset (scenario.components |> Dict.keys) scenario.outsetJoints
-    
+
 getAllReachedJointsIdsFromOutset : List (JointId, JointId) -> Set.Set JointId -> Set.Set JointId
 getAllReachedJointsIdsFromOutset connectedJoints outsetJointsIds =
   let
@@ -211,3 +217,6 @@ getAllReachedJointsIdsFromOutset connectedJoints outsetJointsIds =
 
 locationIsInsideScenario : Float2 -> Bool
 locationIsInsideScenario (x, y) = y < 1111
+
+getCurrentBuildingHeight : Model -> Float
+getCurrentBuildingHeight scenario = scenario.joints |> Dict.values |> List.map (\joint -> joint.location |> Tuple.second) |> List.maximum |> Maybe.withDefault 0
