@@ -216,7 +216,7 @@ getAllReachedJointsIdsFromOutset connectedJoints outsetJointsIds =
     else getAllReachedJointsIdsFromOutset connectedJoints nextStepReachableJointsIds
 
 locationIsInsideScenario : Float2 -> Bool
-locationIsInsideScenario (x, y) = y < 1111
+locationIsInsideScenario (x, y) = -1111 < y
 
 getCurrentBuildingHeight : Model -> Float
 getCurrentBuildingHeight scenario = scenario.joints |> Dict.values |> List.map (\joint -> joint.location |> Tuple.second) |> List.maximum |> Maybe.withDefault 0
