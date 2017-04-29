@@ -130,15 +130,6 @@ viewWithScenarioUpdated scenario viewport =
     ]
     |> Svg.svg [ SA.width (viewportWidth |> toString), SA.height (viewportHeight |> toString), style viewportStyle ]
 
-heightLineView : Float -> Float -> Html.Html a
-heightLineView horizontalExtend height =
-  [
-    Svg.line (Visuals.svgListAttributesFromStartAndEnd (-horizontalExtend * 0.5, 0) (horizontalExtend * 0.5, 0) |> List.append [ style heightLineStyle] ) []
-  ] |> svgGroupWithTranslationAndElements (0, height)
-
-heightLineStyle : HtmlStyle
-heightLineStyle = [ ("stroke","whitesmoke"),("stroke-width","3px"),("stroke-opacity","0.18"),("stroke-dasharray","4")]
-
 update : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
 update msg scenarioBeforeUpdate viewport =
   updateWithScenarioUpdated msg (scenarioBeforeUpdate |> Scenario.progress 0) viewport
@@ -251,6 +242,16 @@ getSupportTypeFromJointId scenario jointId =
   |> List.filterMap (\(supportedSetDict, supportType) -> if supportedSetDict |> Dict.keys |> List.member jointId then Just supportType else Nothing)
   |> List.head |> Maybe.withDefault None
 
+heightLineView : Float -> Float -> Html.Html a
+heightLineView horizontalExtend height =
+  [
+    Svg.line (Visuals.svgListAttributesFromStartAndEnd (-horizontalExtend * 0.5, 0) (horizontalExtend * 0.47, 0) |> List.append [ style heightLineStyle] ) [],
+    [ Svg.tspan [ SA.dy "0.5em" ] [ Svg.text (height |> floor |> toString) ] ]
+    |> Svg.text_ [ style heightNumberStyle ]
+    |> List.singleton |> svgGroupWithTranslationAndElements (horizontalExtend * 0.5, 0)
+    |> List.singleton |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"]
+  ] |> svgGroupWithTranslationAndElements (0, height)
+
 jointStyle : JointViewModel -> HtmlStyle
 jointStyle viewModel =
   [
@@ -274,3 +275,13 @@ componentLineStyle isBuilt stressFactor =
 viewportStyle : HtmlStyle
 viewportStyle =
     [("background", "#101010"), ("cursor","default")]
+
+heightLineStyle : HtmlStyle
+heightLineStyle = [ ("stroke","whitesmoke"),("stroke-width","3px"),("stroke-opacity","0.18"),("stroke-dasharray","4")]
+
+heightNumberStyle : HtmlStyle
+heightNumberStyle =
+  [
+    ("text-anchor","middle"),("font-size","30px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
+    ("fill","whitesmoke"),("opacity","0.7")
+  ]
