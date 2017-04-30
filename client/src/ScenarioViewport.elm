@@ -67,8 +67,8 @@ viewWithScenarioUpdated scenario viewport =
 
     jointLocationFromId jointId = scenarioAfterMouseUpEvent.joints |> Dict.get jointId
 
-    componentStartAndEndLocation : (JointId, JointId) -> Maybe (Float2, Float2)
-    componentStartAndEndLocation (startJointId, endJointId) =
+    beamStartAndEndLocation : (JointId, JointId) -> Maybe (Float2, Float2)
+    beamStartAndEndLocation (startJointId, endJointId) =
       case (jointLocationFromId startJointId, jointLocationFromId endJointId) of
         (Just startJoint, Just endJoint) -> Just (startJoint.location, endJoint.location)
         _ -> Nothing
@@ -92,17 +92,17 @@ viewWithScenarioUpdated scenario viewport =
             } joint.location)
       |> Dict.values
 
-    componentsViews =
-      scenarioAfterMouseUpEvent.components
-      |> Dict.map (\jointsIds component ->
-        case componentStartAndEndLocation jointsIds of
+    beamsViews =
+      scenarioAfterMouseUpEvent.beams
+      |> Dict.map (\jointsIds beam ->
+        case beamStartAndEndLocation jointsIds of
         Nothing -> Nothing
         Just location ->
           let
-            isBuilt = scenario.components |> Dict.member jointsIds
-            stressFactor = if not isBuilt then 0 else Scenario.stressFactorFromComponent scenario jointsIds |> Maybe.withDefault 1
+            isBuilt = scenario.beams |> Dict.member jointsIds
+            stressFactor = if not isBuilt then 0 else Scenario.stressFactorFromBeam scenario jointsIds |> Maybe.withDefault 1
           in
-            Just (componentView isBuilt stressFactor location))
+            Just (beamView isBuilt stressFactor location))
       |> Dict.values |> List.filterMap identity
 
     mouseEventOffsetTransform eventOffset =
@@ -129,7 +129,7 @@ viewWithScenarioUpdated scenario viewport =
     [
       [
         jointsViews |> Svg.g [],
-        componentsViews |> Svg.g [],
+        beamsViews |> Svg.g [],
         heightLines |> Svg.g []
       ]
       |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"] |> List.singleton
@@ -167,12 +167,12 @@ updateWithScenarioUpdated msg scenario viewport =
               Just mouseLocationInWorld ->
                 case (viewport.dragStartJointId, getIdOfJointForInteractionFromLocation scenario mouseLocationInWorld) of
                 (Just startJointId, Just endJointId) ->
-                  [ Scenario.BuildComponent startJointId endJointId ]
+                  [ Scenario.BuildBeam startJointId endJointId ]
                 (Just startJointId, Nothing) ->
                   let
                     newJointId = (scenario.joints |> Dict.keys |> List.maximum |> Maybe.withDefault 0) + 1
                   in
-                    [ Scenario.TempSupportForJoint newJointId mouseLocationInWorld, Scenario.BuildComponent startJointId newJointId ]
+                    [ Scenario.TempSupportForJoint newJointId mouseLocationInWorld, Scenario.BuildBeam startJointId newJointId ]
                 _ -> []
           in
             (\viewport -> ({ viewport | dragStartJointId = Nothing }, toScenarioMessage))
@@ -240,9 +240,9 @@ jointViewCircle : JointViewModel -> Html.Html a
 jointViewCircle viewModel =
   Svg.circle [ SA.r ((viewModel.diameter |> toString) ++ "px"), style (jointStyle viewModel ) ] []
 
-componentView : Bool -> Float -> (Float2, Float2) -> Html.Html a
-componentView isBuilt stressFactor (startLocation, endLocation) =
-  Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style (componentLineStyle isBuilt stressFactor)]) []
+beamView : Bool -> Float -> (Float2, Float2) -> Html.Html a
+beamView isBuilt stressFactor (startLocation, endLocation) =
+  Svg.line ((Visuals.svgListAttributesFromStartAndEnd startLocation endLocation) |> List.append [style (beamLineStyle isBuilt stressFactor)]) []
 
 getSupportTypeFromJointId : Scenario.Model -> JointId -> JointSupportType
 getSupportTypeFromJointId scenario jointId =
@@ -270,8 +270,8 @@ jointStyle viewModel =
     ("fill","none")
   ]
 
-componentLineStyle : Bool -> Float -> HtmlStyle
-componentLineStyle isBuilt stressFactor =
+beamLineStyle : Bool -> Float -> HtmlStyle
+beamLineStyle isBuilt stressFactor =
   let
     color = Color.hsla 0 (stressFactor |> min 1 |> max 0) 0.5 0.8
   in

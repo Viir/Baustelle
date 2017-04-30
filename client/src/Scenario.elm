@@ -1,4 +1,4 @@
-module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromComponent)
+module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam)
 
 import Base exposing (..)
 import Vector2 exposing (Float2)
@@ -11,7 +11,7 @@ type alias JointId = Int
 type alias Model =
   {
     joints : Dict.Dict JointId Joint,
-    components : Dict.Dict (JointId, JointId) Component,
+    beams : Dict.Dict (JointId, JointId) Beam,
     permSupport : Dict.Dict JointId Float2,
     tempSupport : Dict.Dict JointId Float2,
     outsetJoints : Set.Set JointId,
@@ -25,30 +25,30 @@ type alias Joint =
     velocity : Float2
   }
 
-type alias Component =
+type alias Beam =
   {
     builtLength : Float
   }
 
 type FromPlayerMsg
-  = BuildComponent JointId JointId
+  = BuildBeam JointId JointId
   | TempSupportForJoint JointId Float2
 
 type alias ScenarioConfig =
   {
     gravity : Float2,
-    maintainComponentLengthForceFactor : Float,
+    maintainBeamLengthForceFactor : Float,
     dampFactor : Float,
-    componentFailThreshold : Float
+    beamFailThreshold : Float
   }
 
 config : ScenarioConfig
 config =
   {
     gravity = (0, -1e-4),
-    maintainComponentLengthForceFactor = 3e-2,
+    maintainBeamLengthForceFactor = 3e-2,
     dampFactor = 3e-3,
-    componentFailThreshold = 0.3
+    beamFailThreshold = 0.3
   }
 
 updateStepDuration : Int
@@ -79,8 +79,8 @@ updateStep duration scenario =
       scenario.joints |> Dict.union jointsFromSupport
       |> Dict.map (\jointId joint ->
         let
-          connectedComponentsForce =
-            scenario.components |> Dict.map (\(joint0Id, joint1Id) component ->
+          connectedBeamsForce =
+            scenario.beams |> Dict.map (\(joint0Id, joint1Id) beam ->
               if (joint0Id == jointId || joint1Id == jointId) |> not
               then (0, 0)
               else
@@ -91,18 +91,18 @@ updateStep duration scenario =
                   Nothing -> (0, 0)
                   Just otherJoint ->
                     let
-                      componentLength = joint.location |> Vector2.distance otherJoint.location
-                      expansionForce = component.builtLength / componentLength - 1
+                      beamLength = joint.location |> Vector2.distance otherJoint.location
+                      expansionForce = beam.builtLength / beamLength - 1
                       forceToMaintainLength =
                         Vector2.directionFromTo otherJoint.location joint.location
-                        |> Vector2.scale (expansionForce * config.maintainComponentLengthForceFactor)
+                        |> Vector2.scale (expansionForce * config.maintainBeamLengthForceFactor)
                     in
                       forceToMaintainLength)
 
-          connectedComponentsForceSum =
-            connectedComponentsForce |> Dict.values |> List.foldl (\c0 c1 -> Vector2.add c0 c1) (0, 0)
+          connectedBeamsForceSum =
+            connectedBeamsForce |> Dict.values |> List.foldl (\c0 c1 -> Vector2.add c0 c1) (0, 0)
 
-          combinedAcceleration = gravityAcceleration |> Vector2.add connectedComponentsForceSum
+          combinedAcceleration = gravityAcceleration |> Vector2.add connectedBeamsForceSum
 
           dampFactor = (1 + config.dampFactor) ^ durationFloat
 
@@ -128,21 +128,21 @@ removeJointsOutsideScenario scenario =
 updateForFailure : Model -> Model
 updateForFailure scenario =
   let
-    remainingComponents =
-      scenario.components
-      |> Dict.filter (\jointsIds component ->
-        stressFactorFromComponent scenario jointsIds |> Maybe.andThen (\stressFactor -> Just (stressFactor < 1)) |> Maybe.withDefault False)
+    remainingBeams =
+      scenario.beams
+      |> Dict.filter (\jointsIds beam ->
+        stressFactorFromBeam scenario jointsIds |> Maybe.andThen (\stressFactor -> Just (stressFactor < 1)) |> Maybe.withDefault False)
 
-    remainingComponentsKeys = remainingComponents |> Dict.keys
+    remainingBeamsKeys = remainingBeams |> Dict.keys
 
     supportJointsIds = [ scenario.permSupport |> Dict.keys, scenario.tempSupport |> Dict.keys ] |> List.concat |> Set.fromList
 
     remainingJoints =
       scenario.joints
       |> Dict.filter (\jointId joint ->
-        (supportJointsIds |> Set.member jointId) || (remainingComponentsKeys |> List.any (\(joint0Id, joint1Id) -> joint0Id == jointId || joint1Id == jointId)))
+        (supportJointsIds |> Set.member jointId) || (remainingBeamsKeys |> List.any (\(joint0Id, joint1Id) -> joint0Id == jointId || joint1Id == jointId)))
   in
-    { scenario | components = remainingComponents, joints = remainingJoints }
+    { scenario | beams = remainingBeams, joints = remainingJoints }
 
 updateForPlayerInputs : List FromPlayerMsg -> Model -> Model
 updateForPlayerInputs listFromPlayerInput scenario =
@@ -151,16 +151,16 @@ updateForPlayerInputs listFromPlayerInput scenario =
 updateForPlayerInput : FromPlayerMsg -> Model -> Model
 updateForPlayerInput msg scenario =
   case msg of
-  BuildComponent startJointId endJointId ->
+  BuildBeam startJointId endJointId ->
     if startJointId == endJointId || (getAllReachedJointsIds scenario |> Set.member startJointId |> not)
     then scenario
     else
       case distanceFromJointsInScenario scenario (startJointId, endJointId) of
       Just length ->
         let
-          component = { builtLength = length }
+          beam = { builtLength = length }
         in
-          { scenario | components = scenario.components |> Dict.insert (startJointId, endJointId) component }
+          { scenario | beams = scenario.beams |> Dict.insert (startJointId, endJointId) beam }
       _ -> scenario
   TempSupportForJoint jointId supportLocation ->
     if scenario.joints |> Dict.member jointId
@@ -187,19 +187,19 @@ distanceFromJointsInScenario scenario (joint0Id, joint1Id) =
   (Just joint0, Just joint1) -> Just (joint0.location |> Vector2.distance joint1.location)
   _ -> Nothing
 
-stressFactorFromComponent : Model -> (JointId, JointId) -> Maybe Float
-stressFactorFromComponent scenario joints =
-  case (distanceFromJointsInScenario scenario joints, scenario.components |> Dict.get joints) of
-  (Just length, Just component) ->
+stressFactorFromBeam : Model -> (JointId, JointId) -> Maybe Float
+stressFactorFromBeam scenario joints =
+  case (distanceFromJointsInScenario scenario joints, scenario.beams |> Dict.get joints) of
+  (Just length, Just beam) ->
     let
-      stretchFactor = length / component.builtLength - 1
+      stretchFactor = length / beam.builtLength - 1
     in
-      Just ((abs stretchFactor) / config.componentFailThreshold)
+      Just ((abs stretchFactor) / config.beamFailThreshold)
   _ -> Nothing
 
 getAllReachedJointsIds : Model -> Set.Set JointId
 getAllReachedJointsIds scenario =
-  getAllReachedJointsIdsFromOutset (scenario.components |> Dict.keys) scenario.outsetJoints
+  getAllReachedJointsIdsFromOutset (scenario.beams |> Dict.keys) scenario.outsetJoints
 
 getAllReachedJointsIdsFromOutset : List (JointId, JointId) -> Set.Set JointId -> Set.Set JointId
 getAllReachedJointsIdsFromOutset connectedJoints outsetJointsIds =
