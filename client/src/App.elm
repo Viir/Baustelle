@@ -39,15 +39,16 @@ initialScenario =
     supportJointsLocations =
       rowFromJointCountAndHeight (4, 0)
 
-    jointsLocations =
+    towerJointsLocations =
       [ (3, 130), (2, 260), (1, 450)] |> List.map rowFromJointCountAndHeight |> List.concat
   in
     ScenarioConstruction.emptyScenario
     |> ScenarioConstruction.withTempSupportRange 150
     |> ScenarioConstruction.withPermSupportAddedAtLocations
       (supportJointsLocations |> List.map (\location -> (location, True)))
-    |> ScenarioConstruction.withJointsAddedAtLocations jointsLocations
+    |> ScenarioConstruction.withJointsAddedAtLocations towerJointsLocations
     |> ScenarioConstruction.withBeamsAddedForMaxLength 240
+    |> Scenario.progress 1000
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
