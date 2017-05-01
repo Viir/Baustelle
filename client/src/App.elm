@@ -24,13 +24,30 @@ init : (Model, Cmd Msg)
 init =
   ({
     timeMilli = 0,
-    scenario =
-      ScenarioConstruction.emptyScenario
-      |> ScenarioConstruction.withTempSupportRange 150
-      |> ScenarioConstruction.withPermSupportAddedAtLocations
-        (List.range 0 3 |> List.map (\i -> ((i * 150 - 225 |> toFloat, 0), True))),
+    scenario = initialScenario,
     viewport = ScenarioViewport.defaultViewport
   }, Cmd.none)
+
+initialScenario : Scenario.Model
+initialScenario =
+  let
+    jointDistanceHorizontal = 150
+
+    rowFromJointCountAndHeight (jointCount, height) =
+      List.range 0 (jointCount - 1) |> List.map (\i -> (i * jointDistanceHorizontal - ((jointCount - 1) * jointDistanceHorizontal // 2) |> toFloat, height))
+
+    supportJointsLocations =
+      rowFromJointCountAndHeight (4, 0)
+
+    jointsLocations =
+      [ (3, 130), (2, 260), (1, 450)] |> List.map rowFromJointCountAndHeight |> List.concat
+  in
+    ScenarioConstruction.emptyScenario
+    |> ScenarioConstruction.withTempSupportRange 150
+    |> ScenarioConstruction.withPermSupportAddedAtLocations
+      (supportJointsLocations |> List.map (\location -> (location, True)))
+    |> ScenarioConstruction.withJointsAddedAtLocations jointsLocations
+    |> ScenarioConstruction.withBeamsAddedForMaxLength 240
 
 subscriptions : Model -> Sub Msg
 subscriptions model =

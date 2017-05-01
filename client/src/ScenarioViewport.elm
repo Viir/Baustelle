@@ -54,7 +54,7 @@ viewportSize : Float2
 viewportSize = (800, 600)
 
 cameraTranslation : Float2
-cameraTranslation = ((viewportSize |> Tuple.first) / 2, (viewportSize |> Tuple.second) - 100)
+cameraTranslation = ((viewportSize |> Tuple.first) / 2, (viewportSize |> Tuple.second) - 50)
 
 viewWithScenarioUpdated : Scenario.Model -> Model -> Html.Html Msg
 viewWithScenarioUpdated scenario viewport =

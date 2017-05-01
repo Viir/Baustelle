@@ -1,4 +1,4 @@
-module Scenario exposing (Model, JointId, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam)
+module Scenario exposing (Model, JointId, Beam, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport)
 
 import Base exposing (..)
 import Vector2 exposing (Float2)
@@ -70,13 +70,8 @@ updateStep duration scenario =
 
     gravityAcceleration = config.gravity |> Vector2.scale durationFloat
 
-    jointsFromSupport : Dict.Dict JointId Joint
-    jointsFromSupport =
-      scenario.permSupport |> Dict.union scenario.tempSupport
-      |> Dict.map (\_ location -> { location = location, velocity = (0, 0)})
-
     joints =
-      scenario.joints |> Dict.union jointsFromSupport
+      scenario.joints |> Dict.union (getJointsFromSupport scenario)
       |> Dict.map (\jointId joint ->
         let
           connectedBeamsForce =
@@ -143,6 +138,11 @@ updateForFailure scenario =
         (supportJointsIds |> Set.member jointId) || (remainingBeamsKeys |> List.any (\(joint0Id, joint1Id) -> joint0Id == jointId || joint1Id == jointId)))
   in
     { scenario | beams = remainingBeams, joints = remainingJoints }
+
+getJointsFromSupport : Model -> Dict.Dict JointId Joint
+getJointsFromSupport scenario =
+  scenario.permSupport |> Dict.union scenario.tempSupport
+  |> Dict.map (\_ location -> { location = location, velocity = (0, 0)})
 
 updateForPlayerInputs : List FromPlayerMsg -> Model -> Model
 updateForPlayerInputs listFromPlayerInput scenario =
