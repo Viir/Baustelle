@@ -6,6 +6,7 @@
 + Enable scoring comparison between different possible solutions: cost for components.
 + Undo function: Go back in time befor last addition of construction component.
 + Recycle function: Remove component and return a portion of what has been spent on that component.
++ Mechanics: Beam mass proportional to length and force on joint dependend on beam mass.
 
 ### UI Interaction
 + Drag gesture: Affordance for dragging when user clicks on joint.

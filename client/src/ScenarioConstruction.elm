@@ -11,13 +11,15 @@ import Vector2 exposing (Float2)
 emptyScenario : Scenario.Model
 emptyScenario =
     {
+        timeMilli = 0,
         joints = Dict.empty,
         permSupport = Dict.empty,
         tempSupport = Dict.empty,
         beams = Dict.empty,
         outsetJoints = Set.empty,
         tempSupportRange = 0,
-        maxHeightRecord = -9999
+        maxHeightRecord = -9999,
+        adversaries = Dict.empty
     }
 
 jointIdsBase : Scenario.Model -> JointId

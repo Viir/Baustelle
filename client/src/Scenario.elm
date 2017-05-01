@@ -1,4 +1,4 @@
-module Scenario exposing (Model, JointId, Beam, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport)
+module Scenario exposing (Model, JointId, Beam, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport, withAdversaryAddedOnBeam)
 
 import Base exposing (..)
 import Vector2 exposing (Float2)
@@ -10,13 +10,15 @@ type alias JointId = Int
 
 type alias Model =
   {
+    timeMilli : Int,
     joints : Dict.Dict JointId Joint,
     beams : Dict.Dict (JointId, JointId) Beam,
     permSupport : Dict.Dict JointId Float2,
     tempSupport : Dict.Dict JointId Float2,
     outsetJoints : Set.Set JointId,
     tempSupportRange : Float,
-    maxHeightRecord : Float
+    maxHeightRecord : Float,
+    adversaries : Dict.Dict (JointId, JointId) Adversary
   }
 
 type alias Joint =
@@ -29,6 +31,8 @@ type alias Beam =
   {
     builtLength : Float
   }
+
+type alias Adversary = { mass : Float }
 
 type FromPlayerMsg
   = BuildBeam JointId JointId
@@ -97,7 +101,11 @@ updateStep duration scenario =
           connectedBeamsForceSum =
             connectedBeamsForce |> Dict.values |> List.foldl (\c0 c1 -> Vector2.add c0 c1) (0, 0)
 
-          combinedAcceleration = gravityAcceleration |> Vector2.add connectedBeamsForceSum
+          adversaryMass =
+            scenario.adversaries |> Dict.filter (\(joint0, joint1) _ -> joint0 == jointId || joint1 == jointId) |> Dict.values
+            |> List.map (\adversary -> adversary.mass) |> List.sum
+
+          combinedAcceleration = gravityAcceleration |> Vector2.scale (1 + adversaryMass) |> Vector2.add connectedBeamsForceSum
 
           dampFactor = (1 + config.dampFactor) ^ durationFloat
 
@@ -109,7 +117,7 @@ updateStep duration scenario =
           { joint | location = jointLocation, velocity = velocity })
 
     afterMechanics =
-      { scenario | joints = joints }
+      { scenario | joints = joints, timeMilli = scenario.timeMilli + duration }
       |> removeJointsOutsideScenario |> updateForFailure
 
     maxHeightRecord = getCurrentBuildingHeight afterMechanics |> max afterMechanics.maxHeightRecord
@@ -138,6 +146,14 @@ updateForFailure scenario =
         (supportJointsIds |> Set.member jointId) || (remainingBeamsKeys |> List.any (\(joint0Id, joint1Id) -> joint0Id == jointId || joint1Id == jointId)))
   in
     { scenario | beams = remainingBeams, joints = remainingJoints }
+
+withAdversaryAddedOnBeam : ((JointId, JointId), Float) -> Model -> Model
+withAdversaryAddedOnBeam (beamLocation, adversaryMass) scenario =
+  let
+    previousAdversary = scenario.adversaries |> Dict.get beamLocation |> Maybe.withDefault emptyAdversary
+    adversary = { previousAdversary | mass = previousAdversary.mass + adversaryMass }
+  in
+    { scenario | adversaries = scenario.adversaries |> Dict.insert beamLocation adversary }
 
 getJointsFromSupport : Model -> Dict.Dict JointId Joint
 getJointsFromSupport scenario =
@@ -220,3 +236,6 @@ locationIsInsideScenario (x, y) = -1111 < y
 
 getCurrentBuildingHeight : Model -> Float
 getCurrentBuildingHeight scenario = scenario.joints |> Dict.values |> List.map (\joint -> joint.location |> Tuple.second) |> List.maximum |> Maybe.withDefault 0
+
+emptyAdversary : Adversary
+emptyAdversary = { mass = 0 }

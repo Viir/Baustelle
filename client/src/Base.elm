@@ -1,6 +1,7 @@
 module Base exposing (..)
 
 import Dict
+import Random
 
 
 dictFromListWithIndexAsKey : List a -> Dict.Dict Int a
@@ -15,3 +16,10 @@ withListTransformApplied listTransform original =
     case listTransform |> List.head of
     Just transform -> withListTransformApplied (listTransform |> List.tail |> Maybe.withDefault []) (transform original)
     Nothing -> original
+
+listRandomItem : Random.Seed -> List a -> Maybe a
+listRandomItem randomSeed list =
+  let
+      (index, _) = Random.step (Random.int 0 ((list |> List.length) - 1)) randomSeed
+  in
+    list |> List.drop index |> List.head

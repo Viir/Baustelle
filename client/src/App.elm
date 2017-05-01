@@ -2,7 +2,9 @@ import Html exposing (div, button, text)
 import Scenario
 import ScenarioViewport
 import ScenarioConstruction
+import Game
 import Time
+import Random
 
 
 main : Program Never Model Msg
@@ -16,7 +18,7 @@ type Msg
 type alias Model =
   {
     timeMilli : Int,
-    scenario : Scenario.Model,
+    game : Game.Model,
     viewport : ScenarioViewport.Model
   }
 
@@ -24,7 +26,7 @@ init : (Model, Cmd Msg)
 init =
   ({
     timeMilli = 0,
-    scenario = initialScenario,
+    game = { scenario = initialScenario },
     viewport = ScenarioViewport.defaultViewport
   }, Cmd.none)
 
@@ -56,7 +58,7 @@ subscriptions model =
 
 view : Model -> Html.Html Msg
 view model =
-  ScenarioViewport.view model.scenario model.viewport
+  ScenarioViewport.view model.game.scenario model.viewport
   |> Html.map SiteViewport
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -64,13 +66,13 @@ update msg model =
   case msg of
   SiteViewport viewportMsg ->
     let
-      (viewport, listToGameInput) = (ScenarioViewport.update viewportMsg model.scenario model.viewport)
-      scenario = Scenario.updateForPlayerInputs listToGameInput model.scenario
+      (viewport, listToGameInput) = (ScenarioViewport.update viewportMsg model.game.scenario model.viewport)
+      game = Game.updateForPlayerInputs listToGameInput model.game
     in
-      ({ model | scenario = scenario, viewport = viewport }, Cmd.none)
+      ({ model | game = game, viewport = viewport }, Cmd.none)
   TimeUpdate time ->
     let
       timeMilli = time |> round
       durationMilli = timeMilli - model.timeMilli
     in
-      ({ model | timeMilli = timeMilli, scenario = Scenario.progress (durationMilli |> min 1000) model.scenario }, Cmd.none)
+      ({ model | timeMilli = timeMilli, game = Game.progress (durationMilli |> min 1000) (Random.initialSeed (timeMilli * 347161)) model.game }, Cmd.none)
