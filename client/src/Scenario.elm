@@ -1,4 +1,4 @@
-module Scenario exposing (Model, JointId, Beam, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport, withAdversaryAddedOnBeam)
+module Scenario exposing (Model, JointId, Beam, Adversary, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport, withAdversaryAddedOnBeam)
 
 import Base exposing (..)
 import Vector2 exposing (Float2)

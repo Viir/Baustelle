@@ -125,13 +125,27 @@ viewWithScenarioUpdated scenario viewport =
         then [ heightLineView (viewportWidth * 0.8) scenarioAfterMouseUpEvent.maxHeightRecord |> List.singleton |> Svg.g [ style [("opacity","0.5")]] ]
         else []
       ] |> List.concat
+
+    adversariesViews =
+      scenario.adversaries
+      |> Dict.map (\jointsIds adversary ->
+        let
+          location =
+            beamStartAndEndLocation jointsIds
+            |> Maybe.andThen (\(joint0loc, joint1loc) -> Vector2.add joint0loc joint1loc |> Vector2.scale 0.5 |> Just)
+            |> Maybe.withDefault (0,0)
+
+        in adversaryView adversary |> List.singleton |> Visuals.svgGroupWithTranslationAndElements location)
+      |> Dict.values
+
   in
     [
       [
-        jointsViews |> Svg.g [],
-        beamsViews |> Svg.g [],
-        heightLines |> Svg.g []
-      ]
+        jointsViews,
+        beamsViews,
+        adversariesViews,
+        heightLines
+      ] |> List.map (Svg.g [])
       |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"] |> List.singleton
       |> Visuals.svgGroupWithTranslationAndElements cameraTranslation,
       inputElement
@@ -260,6 +274,16 @@ heightLineView horizontalExtend height =
     |> List.singleton |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"]
   ] |> svgGroupWithTranslationAndElements (0, height)
 
+adversaryView : Scenario.Adversary -> Html.Html a
+adversaryView adversary =
+  let
+    adversaryShapeScaled = adversaryShape |> List.map (Vector2.scale (adversary.mass ^ 0.7))
+  in
+    Svg.path [ SA.d ((Visuals.svgPathDataFromPolygonListPoint adversaryShapeScaled) ++ "z"), style adversaryStyle ] []
+
+adversaryShape : List Float2
+adversaryShape = [(-2,0),(2,0),(2,-8),(6,-8),(0,-14),(-6,-8),(-2,-8)]
+
 jointStyle : JointViewModel -> HtmlStyle
 jointStyle viewModel =
   [
@@ -293,3 +317,6 @@ heightNumberStyle =
     ("text-anchor","middle"),("font-size","30px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
     ("fill","whitesmoke"),("opacity","0.7")
   ]
+
+adversaryStyle : HtmlStyle
+adversaryStyle = [("fill","orange"),("opacity","0.7")]
