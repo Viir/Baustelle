@@ -6,8 +6,8 @@ Screenshot of version at commit 9582471:
 
 ![Screenshot of version at commit 9582471](/devlog/2017-04-29.Baustelle@commit[9582471].gif?raw=true)
 
-Screenshot of version at commit fb4f569:
+Screenshot of version at commit 3441288:
 
-![Screenshot of version at commit fb4f569](/devlog/2017-05-01.Baustelle@commit[fb4f569].gif?raw=true)
+![Screenshot of version at commit 3441288](/devlog/2017-05-04.baustelle.at-commit[3441288].gif?raw=true)
 
 
