@@ -239,12 +239,12 @@ getSupportTypeFromJointId scenario jointId =
 adversaryView : Scenario.Adversary -> Html.Html a
 adversaryView adversary =
   let
-    adversaryShapeScaled = adversaryShape |> List.map (Vector2.scale (adversary.mass ^ 0.7))
+    adversaryShapeScaled = adversaryShape |> List.map (Vector2.scale (adversary.mass ^ 0.5))
   in
     Svg.path [ SA.d ((Visuals.svgPathDataFromPolygonListPoint adversaryShapeScaled) ++ "z"), style adversaryStyle ] []
 
 adversaryShape : List Float2
-adversaryShape = [(-2,0),(2,0),(2,-8),(6,-8),(0,-14),(-6,-8),(-2,-8)]
+adversaryShape = [(-2,5),(2,5),(2,-3),(6,-3),(0,-9),(-6,-3),(-2,-3)]
 
 jointStyle : JointViewModel -> HtmlStyle
 jointStyle viewModel =
