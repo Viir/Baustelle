@@ -8,5 +8,10 @@
 + Recycle function: Remove component and return a portion of what has been spent on that component.
 + Mechanics: Beam mass proportional to length and force on joint dependend on beam mass.
 
-### UI Interaction
+### UI
 + Drag gesture: Affordance for dragging when user clicks on joint.
++ Forward communication of game over condition in advance: Indicate importance of height detoriation to player (¿smiley face expression on flag?).
+
+### Atmosphere
++ Sound effects for beam failure.
++ Sound effects for beam stress or movement.
