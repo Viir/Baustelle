@@ -18,7 +18,8 @@ type alias Model =
     outsetJoints : Set.Set JointId,
     tempSupportRange : Float,
     maxHeightRecord : Float,
-    adversaries : Dict.Dict (JointId, JointId) Adversary
+    adversaries : Dict.Dict (JointId, JointId) Adversary,
+    supplies : Float
   }
 
 type alias Joint =
@@ -182,11 +183,13 @@ updateForPlayerInput msg scenario =
     then scenario
     else
       case distanceFromJointsInScenario scenario (startJointId, endJointId) of
-      Just length ->
+      Just beamLength ->
         let
-          beam = { builtLength = length }
+          beam = { builtLength = beamLength }
+          supplies = scenario.supplies - beamLength
         in
-          { scenario | beams = scenario.beams |> Dict.insert (startJointId, endJointId) beam }
+          if supplies < 0 then scenario else
+          { scenario | supplies = supplies, beams = scenario.beams |> Dict.insert (startJointId, endJointId) beam }
       _ -> scenario
   TempSupportForJoint jointId supportLocation ->
     if scenario.joints |> Dict.member jointId

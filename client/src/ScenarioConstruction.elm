@@ -19,7 +19,8 @@ emptyScenario =
         outsetJoints = Set.empty,
         tempSupportRange = 0,
         maxHeightRecord = -9999,
-        adversaries = Dict.empty
+        adversaries = Dict.empty,
+        supplies = 0
     }
 
 jointIdsBase : Scenario.Model -> JointId

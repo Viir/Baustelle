@@ -1,7 +1,9 @@
 module Visuals exposing (..)
 
-import Svg exposing (..)
-import Svg.Attributes exposing (..)
+import Svg exposing (Svg)
+import Svg.Attributes as SA exposing (transform, x1, x2, y1, y2)
+import Html
+import Html.Attributes exposing (style)
 import Vector2 exposing (Float2)
 
 type alias HtmlStyle = List (String, String)
@@ -30,3 +32,14 @@ svgPathDataFromPolygonListPoint polygonListPoint =
     case (polygonListPoint |> List.head, polygonListPoint |> List.tail) of
     (Just head, Just tail) -> "M" ++ (vector2String head) ++ " " ++ ((tail |> List.map (\point -> "L " ++ (vector2String point)) |> String.join " "))
     _ -> ""
+
+svgCenteredText : String -> Float2 -> Float -> String -> Html.Html a
+svgCenteredText text (x, y) fontSize color =
+  Svg.text_ [ SA.x (x |> toString), SA.y (y |> toString), style (svgCenteredTextStyle fontSize color) ] [ Svg.text text ]
+
+svgCenteredTextStyle : Float -> String -> HtmlStyle
+svgCenteredTextStyle fontSize color =
+  [
+    ("text-anchor","middle"),("font-size", (fontSize |> toString) ++ "px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
+    ("fill",color),("opacity","0.7")
+  ]

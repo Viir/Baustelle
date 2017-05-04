@@ -14,6 +14,8 @@ import Svg.Attributes as SA
 import Html
 import Html.Attributes exposing (style)
 import Visuals exposing (HtmlStyle)
+import Color
+import Color.Convert
 
 
 type alias Model =
@@ -38,8 +40,10 @@ initialScenario =
 
     towerJointsLocations =
       [ (3, 130), (2, 260), (1, 450)] |> List.map rowFromJointCountAndHeight |> List.concat
+
+    emptyScenario = ScenarioConstruction.emptyScenario
   in
-    ScenarioConstruction.emptyScenario
+    { emptyScenario | supplies = 1000 }
     |> ScenarioConstruction.withTempSupportRange 150
     |> ScenarioConstruction.withPermSupportAddedAtLocations
       (supportJointsLocations |> List.map (\location -> (location, True)))
@@ -60,7 +64,11 @@ gameFromScenario scenario =
             |> List.map Tuple.first
             |> List.head |> Maybe.withDefault -9999
     in
-        { scenario = scenario, toDefendJointId = toDefendJointId, viewport = ScenarioViewport.defaultViewport }
+        {
+            scenario = scenario,
+            toDefendJointId = toDefendJointId,
+            viewport = ScenarioViewport.defaultViewport
+        }
 
 adversaryAdditionAverageDistance : Int
 adversaryAdditionAverageDistance = 4000
@@ -116,13 +124,48 @@ view gameBeforeUpdate =
 
         (viewportWidth, viewportHeight) = ScenarioViewport.viewportSize
 
-        scenarioView = ScenarioViewport.view scenarioViewModel |> Html.map ScenarioViewport
+        suppliesChangeOnMouseUpRounded : Int
+        suppliesChangeOnMouseUpRounded = scenarioViewModel.scenarioAfterMouseUpEvent.supplies - scenarioViewModel.scenario.supplies |> ceiling
+
+        suppliesChangeOnMouseUpText =
+            if suppliesChangeOnMouseUpRounded == 0 then ""
+            else " " ++ (if suppliesChangeOnMouseUpRounded < 0 then "-" else "+") ++ " " ++ (suppliesChangeOnMouseUpRounded |> abs |> toString)
+
+        suppliesText = (scenarioViewModel.scenario.supplies |> round |> toString) ++ suppliesChangeOnMouseUpText ++ " $"
+
+        (suppliesChangeColorSign, suppliesChangeColorHue) =
+            if suppliesChangeOnMouseUpRounded < 0
+            then ("-", 0)
+            else ("+", 2)
+
+        suppliesChangeColor =
+            Color.hsla suppliesChangeColorHue 0.7 0.6 0.8
+            |> Color.Convert.colorToCssRgba
+
+        suppliesChangeListTextWithColor =
+            if suppliesChangeOnMouseUpRounded == 0 then []
+            else [(suppliesChangeColorSign ++ " " ++ (suppliesChangeOnMouseUpRounded |> abs |> toString), suppliesChangeColor)]
+
+        suppliesView =
+            [
+                [(scenarioViewModel.scenario.supplies |> round |> toString, "whitesmoke")],
+                suppliesChangeListTextWithColor
+            ] |> List.concat
+            |> List.indexedMap (\i (text, color) ->
+                Visuals.svgCenteredText (text ++ " $") (viewportWidth / 2 + (i |> toFloat) * 60, 30) 20 color)
+            |> Svg.g []
+
+        scenarioView =
+            [
+                ScenarioViewport.view scenarioViewModel |> Html.map ScenarioViewport,
+                suppliesView
+            ] |> Svg.g []
 
         svgContent =
             if game |> isGameOver
             then
                 [
-                    scenarioView |> List.singleton |> Svg.g [ style [("opacity","0.7")]],
+                    scenarioView |> List.singleton |> Svg.g [ style [("opacity","0.6")]],
                     gameOverView game
                 ] |> Svg.g []
             else scenarioView
@@ -136,8 +179,7 @@ gameOverView game =
         ("GAME OVER", (60, 0)),
         ("you kept up for " ++ ((game.scenario.timeMilli // 1000) |> toString) ++ " seconds", (18, 34))
     ]
-    |> List.map (\(text, (fontSize, offsetVertical)) ->
-        Svg.text_ [ SA.y (offsetVertical |> toString), style (centeredTextStyle fontSize) ] [ Svg.text text ])
+    |> List.map (\(text, (fontSize, offsetVertical)) -> Visuals.svgCenteredText text (0, offsetVertical) fontSize "whitesmoke")
     |> Visuals.svgGroupWithTranslationAndElements ((ScenarioViewport.viewportSize |> Tuple.first) / 2, 100)
 
 updateForPlayerInputs : List Scenario.FromPlayerMsg -> Model -> Model
@@ -174,9 +216,3 @@ viewportStyle =
         ("user-select","none"),("-webkit-user-select","none"),("-moz-user-select","none"),("-ie-user-select","none")
     ]
 
-centeredTextStyle : Float -> HtmlStyle
-centeredTextStyle fontSize =
-  [
-    ("text-anchor","middle"),("font-size", (fontSize |> toString) ++ "px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
-    ("fill","whitesmoke"),("opacity","0.7")
-  ]
