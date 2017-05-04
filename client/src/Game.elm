@@ -22,7 +22,8 @@ type alias Model =
     {
         scenario : Scenario.Model,
         toDefendJointId : Scenario.JointId,
-        viewport : ScenarioViewport.Model
+        viewport : ScenarioViewport.Model,
+        suppliesGiven : Float
     }
 
 type Msg = ScenarioViewport ScenarioViewport.Msg
@@ -67,7 +68,8 @@ gameFromScenario scenario =
         {
             scenario = scenario,
             toDefendJointId = toDefendJointId,
-            viewport = ScenarioViewport.defaultViewport
+            viewport = ScenarioViewport.defaultViewport,
+            suppliesGiven = 0
         }
 
 adversaryAdditionAverageDistance : Int
@@ -79,12 +81,21 @@ progress duration randomSeed game =
     let
         addAdversary = (Random.step (Random.int 0 adversaryAdditionAverageDistance) randomSeed |> Tuple.first) < duration
 
+        suppliesToAdd =
+            (game.scenario.timeMilli |> toFloat) ^ 0.8 * 0.1 - game.suppliesGiven
+
         scenario =
             if addAdversary
             then game.scenario |> withAdversaryAddedAtRandomLocation randomSeed
             else game.scenario
+
+        scenarioWithSuppliesAdded =
+            { scenario | supplies = scenario.supplies + suppliesToAdd }
     in
-        { game | scenario = (scenario |> Scenario.progress duration) }
+        { game |
+            scenario = (scenarioWithSuppliesAdded |> Scenario.progress duration),
+            suppliesGiven = game.suppliesGiven + suppliesToAdd
+        }
 
 withAdversaryAddedAtRandomLocation : Random.Seed -> Scenario.Model -> Scenario.Model
 withAdversaryAddedAtRandomLocation seed scenario =
@@ -126,12 +137,6 @@ view gameBeforeUpdate =
 
         suppliesChangeOnMouseUpRounded : Int
         suppliesChangeOnMouseUpRounded = scenarioViewModel.scenarioAfterMouseUpEvent.supplies - scenarioViewModel.scenario.supplies |> ceiling
-
-        suppliesChangeOnMouseUpText =
-            if suppliesChangeOnMouseUpRounded == 0 then ""
-            else " " ++ (if suppliesChangeOnMouseUpRounded < 0 then "-" else "+") ++ " " ++ (suppliesChangeOnMouseUpRounded |> abs |> toString)
-
-        suppliesText = (scenarioViewModel.scenario.supplies |> round |> toString) ++ suppliesChangeOnMouseUpText ++ " $"
 
         (suppliesChangeColorSign, suppliesChangeColorHue) =
             if suppliesChangeOnMouseUpRounded < 0
