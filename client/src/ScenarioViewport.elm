@@ -1,4 +1,4 @@
-module ScenarioViewport exposing (Model, Msg, update, view, defaultViewport)
+module ScenarioViewport exposing (Model, Msg (MouseEvent), ViewModel, update, view, defaultViewport, viewportSize)
 
 import Scenario exposing (JointId)
 import Console
@@ -34,6 +34,13 @@ type alias JointViewModel =
     strokeWidth : Float
   }
 
+type alias ViewModel =
+  {
+      scenario : Scenario.Model,
+      scenarioAfterMouseUpEvent : Scenario.Model,
+      viewportAfterMouseDownEvent : Model
+  }
+
 type JointSupportType = None | Temp | Perm
 
 defaultViewport : Model
@@ -46,22 +53,18 @@ defaultViewport =
 jointViewDiameterDefault : Float
 jointViewDiameterDefault = 6
 
-view : Scenario.Model -> Model -> Html.Html Msg
-view scenarioBeforeUpdate viewport =
-  viewWithScenarioUpdated (scenarioBeforeUpdate |> Scenario.progress 0) viewport
-
 viewportSize : Float2
 viewportSize = (800, 600)
 
 cameraTranslation : Float2
 cameraTranslation = ((viewportSize |> Tuple.first) / 2, (viewportSize |> Tuple.second) - 50)
 
-viewWithScenarioUpdated : Scenario.Model -> Model -> Html.Html Msg
-viewWithScenarioUpdated scenario viewport =
+view : ViewModel -> Html.Html Msg
+view viewModel =
   let
-    resultFromMouseEventAtCurrentLocation = getResultFromMouseEventAtCurrentLocation scenario viewport
-    (scenarioAfterMouseUpEvent, _) = resultFromMouseEventAtCurrentLocation Console.MouseUp
-    (_, viewportAfterMouseDownEvent) = resultFromMouseEventAtCurrentLocation Console.MouseDown
+    scenario = viewModel.scenario
+    scenarioAfterMouseUpEvent = viewModel.scenarioAfterMouseUpEvent
+    viewportAfterMouseDownEvent = viewModel.viewportAfterMouseDownEvent
 
     reachedJointsIds = Scenario.getAllReachedJointsIds scenario
 
@@ -111,20 +114,10 @@ viewWithScenarioUpdated scenario viewport =
       in
         (translatedX, -translatedY)
 
-    (viewportWidth, viewportHeight) = viewportSize
-
     inputElement : Html.Html Msg
     inputElement =
       Svg.rect ([ SA.width "9999", SA.height "9999", SA.fill "transparent" ] |> List.append (Console.setMouseEventAttributeWithOffsetMapped mouseEventOffsetTransform)) []
       |> Html.map (\maybeEvent -> maybeEvent |> Maybe.andThen (\event -> Just (MouseEvent event)) |> Maybe.withDefault (Error "mouse event"))
-
-    heightLines =
-      [
-        [ heightLineView (viewportWidth * 0.8) scenario.maxHeightRecord ],
-        if scenarioAfterMouseUpEvent.maxHeightRecord /= scenario.maxHeightRecord
-        then [ heightLineView (viewportWidth * 0.8) scenarioAfterMouseUpEvent.maxHeightRecord |> List.singleton |> Svg.g [ style [("opacity","0.5")]] ]
-        else []
-      ] |> List.concat
 
     adversariesViews =
       scenario.adversaries
@@ -143,14 +136,13 @@ viewWithScenarioUpdated scenario viewport =
       [
         jointsViews,
         beamsViews,
-        adversariesViews,
-        heightLines
+        adversariesViews
       ] |> List.map (Svg.g [])
       |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"] |> List.singleton
       |> Visuals.svgGroupWithTranslationAndElements cameraTranslation,
       inputElement
     ]
-    |> Svg.svg [ SA.width (viewportWidth |> toString), SA.height (viewportHeight |> toString), style viewportStyle ]
+    |> Svg.g []
 
 update : Msg -> Scenario.Model -> Model -> (Model, List Scenario.FromPlayerMsg)
 update msg scenarioBeforeUpdate viewport =
@@ -196,26 +188,6 @@ updateWithScenarioUpdated msg scenario viewport =
     in
       eventTypeSpecificTransform { viewportAfterMouseMove | mouseLocationInWorld = Just mouseEvent.offset }
   Error error -> (viewport, [])
-
-getMouseLeftButtonEventForOffset : Console.MouseEventType -> Float2 -> Console.MouseEvent
-getMouseLeftButtonEventForOffset eventType offset =
-  {
-    button = Console.Left,
-    eventType = eventType,
-    offset = offset,
-    wheelDelta = (0,0)
-  }
-
-getResultFromMouseEventAtCurrentLocation : Scenario.Model -> Model -> Console.MouseEventType -> (Scenario.Model, Model)
-getResultFromMouseEventAtCurrentLocation scenario viewport eventType =
-  let
-    (resultViewport, toScenarioInput) =
-      case viewport.mouseLocationInWorld of
-      Nothing -> (viewport, [])
-      Just mouseLocationInWorld ->
-        update (MouseEvent (getMouseLeftButtonEventForOffset eventType mouseLocationInWorld)) scenario viewport
-  in
-    (Scenario.updateForPlayerInputs toScenarioInput scenario, resultViewport)
 
 getIdOfJointUnderMouse : Scenario.Model -> Model -> Maybe JointId
 getIdOfJointUnderMouse scenario viewport =
@@ -264,16 +236,6 @@ getSupportTypeFromJointId scenario jointId =
   |> List.filterMap (\(supportedSetDict, supportType) -> if supportedSetDict |> Dict.keys |> List.member jointId then Just supportType else Nothing)
   |> List.head |> Maybe.withDefault None
 
-heightLineView : Float -> Float -> Html.Html a
-heightLineView horizontalExtend height =
-  [
-    Svg.line (Visuals.svgListAttributesFromStartAndEnd (-horizontalExtend * 0.5, 0) (horizontalExtend * 0.47, 0) |> List.append [ style heightLineStyle] ) [],
-    [ Svg.tspan [ SA.dy "0.5em" ] [ Svg.text (height |> floor |> toString) ] ]
-    |> Svg.text_ [ style heightNumberStyle ]
-    |> List.singleton |> svgGroupWithTranslationAndElements (horizontalExtend * 0.5, 0)
-    |> List.singleton |> Visuals.svgGroupWithListTransformStringAndElements ["scale(1,-1)"]
-  ] |> svgGroupWithTranslationAndElements (0, height)
-
 adversaryView : Scenario.Adversary -> Html.Html a
 adversaryView adversary =
   let
@@ -303,20 +265,6 @@ beamLineStyle isBuilt stressFactor =
       ("stroke", color |> Color.Convert.colorToCssRgba),("stroke-width", (jointViewDiameterDefault / 2 |> toString) ++ "px"),("stroke-opacity","0.6"),
       ("stroke-dasharray", if isBuilt then "inherit" else (jointViewDiameterDefault / 2 |> toString))
     ]
-
-viewportStyle : HtmlStyle
-viewportStyle =
-    [("background", "#101010"), ("cursor","default")]
-
-heightLineStyle : HtmlStyle
-heightLineStyle = [ ("stroke","whitesmoke"),("stroke-width","3px"),("stroke-opacity","0.18"),("stroke-dasharray","4")]
-
-heightNumberStyle : HtmlStyle
-heightNumberStyle =
-  [
-    ("text-anchor","middle"),("font-size","30px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
-    ("fill","whitesmoke"),("opacity","0.7")
-  ]
 
 adversaryStyle : HtmlStyle
 adversaryStyle = [("fill","orange"),("opacity","0.7")]
