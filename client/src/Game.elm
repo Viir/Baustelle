@@ -132,8 +132,13 @@ view gameBeforeUpdate =
 
 gameOverView : Model -> Html.Html a
 gameOverView game =
-    Svg.text_ [ style gameOverTextStyle ] [ Svg.text "GAME OVER" ]
-    |> List.singleton |> Visuals.svgGroupWithTranslationAndElements ((ScenarioViewport.viewportSize |> Tuple.first) / 2, 100)
+    [
+        ("GAME OVER", (60, 0)),
+        ("you kept up for " ++ ((game.scenario.timeMilli // 1000) |> toString) ++ " seconds", (18, 34))
+    ]
+    |> List.map (\(text, (fontSize, offsetVertical)) ->
+        Svg.text_ [ SA.y (offsetVertical |> toString), style (centeredTextStyle fontSize) ] [ Svg.text text ])
+    |> Visuals.svgGroupWithTranslationAndElements ((ScenarioViewport.viewportSize |> Tuple.first) / 2, 100)
 
 updateForPlayerInputs : List Scenario.FromPlayerMsg -> Model -> Model
 updateForPlayerInputs listFromPlayerInput game =
@@ -169,9 +174,9 @@ viewportStyle =
         ("user-select","none"),("-webkit-user-select","none"),("-moz-user-select","none"),("-ie-user-select","none")
     ]
 
-gameOverTextStyle : HtmlStyle
-gameOverTextStyle =
+centeredTextStyle : Float -> HtmlStyle
+centeredTextStyle fontSize =
   [
-    ("text-anchor","middle"),("font-size","60px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
+    ("text-anchor","middle"),("font-size", (fontSize |> toString) ++ "px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
     ("fill","whitesmoke"),("opacity","0.7")
   ]
