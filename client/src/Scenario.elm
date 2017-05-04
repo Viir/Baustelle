@@ -146,6 +146,16 @@ updateForFailure scenario =
         (supportJointsIds |> Set.member jointId) || (remainingBeamsKeys |> List.any (\(joint0Id, joint1Id) -> joint0Id == jointId || joint1Id == jointId)))
   in
     { scenario | beams = remainingBeams, joints = remainingJoints }
+    |> withAdversariesRemovedWhereBeamDoesNotExist
+
+withAdversariesRemovedWhereBeamDoesNotExist : Model -> Model
+withAdversariesRemovedWhereBeamDoesNotExist scenario =
+  let
+    remainingAdversaries =
+      scenario.adversaries
+      |> Dict.filter (\location _ -> scenario.beams |> Dict.member location)
+  in
+    { scenario | adversaries = remainingAdversaries }
 
 withAdversaryAddedOnBeam : ((JointId, JointId), Float) -> Model -> Model
 withAdversaryAddedOnBeam (beamLocation, adversaryMass) scenario =
