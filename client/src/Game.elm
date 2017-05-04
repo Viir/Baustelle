@@ -4,6 +4,7 @@ import Base exposing (..)
 import Scenario
 import Random
 import Dict
+import Set
 
 
 type alias Model =
@@ -28,9 +29,14 @@ progress duration randomSeed game =
 
 withAdversaryAddedAtRandomLocation : Random.Seed -> Scenario.Model -> Scenario.Model
 withAdversaryAddedAtRandomLocation seed scenario =
-    case scenario.beams |> Dict.keys |> listRandomItem seed of
-    Nothing -> scenario
-    Just adversaryLocation -> scenario |> Scenario.withAdversaryAddedOnBeam (adversaryLocation, 1)
+    let
+        jointsToAvoidIds = scenario.permSupport |> Dict.keys |> Set.fromList
+        locationsToChooseFrom =
+            scenario.beams |> Dict.keys |> List.filter (\(joint0, joint1) -> [ joint0, joint1 ] |> List.all (\joint -> jointsToAvoidIds |> Set.member joint) |> not)
+    in
+        case locationsToChooseFrom |> listRandomItem seed of
+        Nothing -> scenario
+        Just adversaryLocation -> scenario |> Scenario.withAdversaryAddedOnBeam (adversaryLocation, 1)
 
 updateForPlayerInputs : List Scenario.FromPlayerMsg -> Model -> Model
 updateForPlayerInputs listFromPlayerInput game =
