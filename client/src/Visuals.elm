@@ -43,3 +43,7 @@ svgCenteredTextStyle fontSize color =
     ("text-anchor","middle"),("font-size", (fontSize |> toString) ++ "px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
     ("fill",color),("opacity","0.7")
   ]
+
+svgRectAttributesSizeAll : List (Html.Attribute a)
+svgRectAttributesSizeAll =
+  [ SA.width "9999", SA.height "9999" ]

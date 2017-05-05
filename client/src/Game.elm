@@ -160,22 +160,20 @@ view gameBeforeUpdate =
                 Visuals.svgCenteredText (text ++ " $") (viewportWidth / 2 + (i |> toFloat) * 80, 30) 20 color)
             |> Svg.g []
 
-        scenarioView =
-            [
-                ScenarioViewport.view scenarioViewModel |> Html.map ScenarioViewport,
-                suppliesView
-            ] |> Svg.g []
-
-        svgContent =
+        gameOverViewElements =
             if game |> isGameOver
             then
                 [
-                    scenarioView |> List.singleton |> Svg.g [ style [("opacity","0.6")]],
+                    Svg.rect (Visuals.svgRectAttributesSizeAll |> List.append [ style [("fill","black"),("opacity","0.5")]]) [],
                     gameOverView game
-                ] |> Svg.g []
-            else scenarioView
+                ]
+            else []
     in
-        [ svgContent ]
+        [
+            ScenarioViewport.view scenarioViewModel |> Html.map ScenarioViewport,
+            [ suppliesView ] |> Svg.g [ style [("pointer-events","none")]],
+            gameOverViewElements |> Svg.g []
+        ]
         |> Svg.svg [ SA.width (viewportWidth |> toString), SA.height (viewportHeight |> toString), style viewportStyle ]
 
 gameOverView : Model -> Html.Html a
