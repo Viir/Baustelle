@@ -17,9 +17,24 @@ withListTransformApplied listTransform original =
     Just transform -> withListTransformApplied (listTransform |> List.tail |> Maybe.withDefault []) (transform original)
     Nothing -> original
 
-listRandomItem : Random.Seed -> List a -> Maybe a
-listRandomItem randomSeed list =
+pickRandomItemFromListWeighted : Random.Seed -> List (a, Int) -> Maybe a
+pickRandomItemFromListWeighted randomSeed listWeighted =
   let
-      (index, _) = Random.step (Random.int 0 ((list |> List.length) - 1)) randomSeed
+    listWithBound =
+        listWeighted |> List.foldl (\(item, itemWeight) listSoFar ->
+            let
+                lastBound =
+                    listSoFar |> List.head
+                    |> Maybe.andThen (\(_, lastItemBound) -> Just lastItemBound) |> Maybe.withDefault 0
+            in
+                (item, lastBound + itemWeight) :: listSoFar) []
+
+    totalBound =
+        listWithBound |> List.head
+        |> Maybe.andThen (\(_, lastItemBound) -> Just lastItemBound) |> Maybe.withDefault 0
+
+    (weightUnitIndex, _) = Random.step (Random.int 0 totalBound) randomSeed
   in
-    list |> List.drop index |> List.head
+    listWithBound
+    |> List.filter (\(_, itemBound) -> itemBound < weightUnitIndex)
+    |> List.head |> Maybe.andThen (\(item, _) -> Just item)

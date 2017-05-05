@@ -102,10 +102,15 @@ withAdversaryAddedAtRandomLocation : Random.Seed -> Scenario.Model -> Scenario.M
 withAdversaryAddedAtRandomLocation seed scenario =
     let
         jointsToAvoidIds = scenario.permSupport |> Dict.keys |> Set.fromList
-        locationsToChooseFrom =
-            scenario.beams |> Dict.keys |> List.filter (\(joint0, joint1) -> [ joint0, joint1 ] |> List.all (\joint -> jointsToAvoidIds |> Set.member joint) |> not)
+
+        locationsToChooseFromWithWeight =
+            scenario.beams |> Dict.toList
+            |> List.filterMap (\((joint0, joint1), beam) ->
+                if [ joint0, joint1 ] |> List.all (\joint -> jointsToAvoidIds |> Set.member joint)
+                then Nothing
+                else Just ((joint0, joint1), beam.builtLength |> round))
     in
-        case locationsToChooseFrom |> listRandomItem seed of
+        case locationsToChooseFromWithWeight |> pickRandomItemFromListWeighted seed of
         Nothing -> scenario
         Just adversaryLocation -> scenario |> Scenario.withAdversaryAddedOnBeam (adversaryLocation, GameConfig.adversaryMass)
 
