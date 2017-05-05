@@ -157,7 +157,7 @@ view gameBeforeUpdate =
                 suppliesChangeListTextWithColor
             ] |> List.concat
             |> List.indexedMap (\i (text, color) ->
-                Visuals.svgCenteredText (text ++ " $") (viewportWidth / 2 + (i |> toFloat) * 60, 30) 20 color)
+                Visuals.svgCenteredText (text ++ " $") (viewportWidth / 2 + (i |> toFloat) * 80, 30) 20 color)
             |> Svg.g []
 
         scenarioView =
