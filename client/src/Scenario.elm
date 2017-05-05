@@ -1,6 +1,7 @@
 module Scenario exposing (Model, JointId, Beam, Adversary, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport, withAdversaryAddedOnBeam)
 
 import Base exposing (..)
+import GameConfig exposing (ScenarioConfig, updateStepDuration)
 import Vector2 exposing (Float2)
 import Dict
 import Set
@@ -10,6 +11,7 @@ type alias JointId = Int
 
 type alias Model =
   {
+    config : ScenarioConfig,
     timeMilli : Int,
     joints : Dict.Dict JointId Joint,
     beams : Dict.Dict (JointId, JointId) Beam,
@@ -39,26 +41,6 @@ type FromPlayerMsg
   = BuildBeam JointId JointId
   | TempSupportForJoint JointId Float2
 
-type alias ScenarioConfig =
-  {
-    gravity : Float2,
-    maintainBeamLengthForceFactor : Float,
-    dampFactor : Float,
-    beamFailThreshold : Float
-  }
-
-config : ScenarioConfig
-config =
-  {
-    gravity = (0, -1e-4),
-    maintainBeamLengthForceFactor = 3e-2,
-    dampFactor = 3e-3,
-    beamFailThreshold = 0.3
-  }
-
-updateStepDuration : Int
-updateStepDuration = 10
-
 progress : Int -> Model -> Model
 progress duration scenario =
   let
@@ -73,49 +55,64 @@ updateStep duration scenario =
   let
     durationFloat = duration |> toFloat
 
+    config = scenario.config
+
     gravityAcceleration = config.gravity |> Vector2.scale durationFloat
 
+    originalJoints = scenario.joints |> Dict.union (getJointsFromSupport scenario)
+
+    joints : Dict.Dict JointId Joint
     joints =
-      scenario.joints |> Dict.union (getJointsFromSupport scenario)
+      originalJoints
       |> Dict.map (\jointId joint ->
         let
-          connectedBeamsForce =
-            scenario.beams |> Dict.map (\(joint0Id, joint1Id) beam ->
-              if (joint0Id == jointId || joint1Id == jointId) |> not
-              then (0, 0)
-              else
-                let
-                  otherJointId = if joint0Id == jointId then joint1Id else joint0Id
-                in
-                  case scenario.joints |> Dict.get otherJointId of
-                  Nothing -> (0, 0)
+          connectedBeamsForcesAndMasses : List (Float2, Float)
+          connectedBeamsForcesAndMasses =
+            scenario.beams |> Dict.toList |> List.filterMap (\(beamLocation, beam) ->
+              let
+                (beamJoint0Id, beamJoint1Id) = beamLocation
+                beamOtherJointId = if beamJoint0Id == jointId then beamJoint1Id else beamJoint0Id
+              in
+                if (beamJoint0Id == jointId || beamJoint1Id == jointId) |> not
+                then Nothing
+                else
+                  case scenario.joints |> Dict.get beamOtherJointId of
+                  Nothing -> Nothing
                   Just otherJoint ->
                     let
+                      beamAdversaryMass =
+                        scenario.adversaries |> Dict.get beamLocation
+                        |> Maybe.andThen (\adversary -> Just adversary.mass) |> Maybe.withDefault 0
+
                       beamLength = joint.location |> Vector2.distance otherJoint.location
-                      expansionForce = beam.builtLength / beamLength - 1
-                      forceToMaintainLength =
+                      beamCurrentMass = beamLength + beamAdversaryMass
+                      beamExpansionForceAmount = (beam.builtLength / beamLength) - 1
+                      beamGravityForce = gravityAcceleration |> Vector2.scale beamCurrentMass
+                      beamMaintainLengthForce =
                         Vector2.directionFromTo otherJoint.location joint.location
-                        |> Vector2.scale (expansionForce * config.maintainBeamLengthForceFactor)
+                        |> Vector2.scale (beamExpansionForceAmount * config.maintainBeamLengthForceFactor)
                     in
-                      forceToMaintainLength)
+                      Just (beamMaintainLengthForce |> Vector2.add beamGravityForce, beamCurrentMass))
 
-          connectedBeamsForceSum =
-            connectedBeamsForce |> Dict.values |> List.foldl (\c0 c1 -> Vector2.add c0 c1) (0, 0)
+          connectedBeamsForce =
+            connectedBeamsForcesAndMasses |> List.map Tuple.first
+            |> List.foldl Vector2.add (0, 0)
 
-          adversaryMass =
-            scenario.adversaries |> Dict.filter (\(joint0, joint1) _ -> joint0 == jointId || joint1 == jointId) |> Dict.values
-            |> List.map (\adversary -> adversary.mass) |> List.sum
+          connectedBeamsMass =
+            connectedBeamsForcesAndMasses |> List.map Tuple.second
+            |> List.sum
 
-          combinedAcceleration = gravityAcceleration |> Vector2.scale (1 + adversaryMass) |> Vector2.add connectedBeamsForceSum
+          combinedAcceleration =
+            connectedBeamsForce |> Vector2.scale (1 / connectedBeamsMass)
 
           dampFactor = (1 + config.dampFactor) ^ durationFloat
 
           velocity =
             joint.velocity |> Vector2.add combinedAcceleration |> Vector2.scale (1 / dampFactor)
 
-          jointLocation = joint.location |> Vector2.add (joint.velocity |> Vector2.scale durationFloat)
-        in
-          { joint | location = jointLocation, velocity = velocity })
+          location = joint.location |> Vector2.add (joint.velocity |> Vector2.scale durationFloat)
+
+        in { joint | location = location, velocity = velocity })
 
     afterMechanics =
       { scenario | joints = joints, timeMilli = scenario.timeMilli + duration }
@@ -229,7 +226,7 @@ stressFactorFromBeam scenario joints =
     let
       stretchFactor = length / beam.builtLength - 1
     in
-      Just ((abs stretchFactor) / config.beamFailThreshold)
+      Just ((abs stretchFactor) / scenario.config.beamFailThreshold)
   _ -> Nothing
 
 getAllReachedJointsIds : Model -> Set.Set JointId

@@ -1,5 +1,6 @@
 module ScenarioViewport exposing (Model, Msg (MouseEvent), ViewModel, update, view, defaultViewport, viewportSize)
 
+import GameConfig
 import Scenario exposing (JointId)
 import Console
 import Visuals exposing (HtmlStyle, svgGroupWithTranslationAndElements)
@@ -239,7 +240,7 @@ getSupportTypeFromJointId scenario jointId =
 adversaryView : Scenario.Adversary -> Html.Html a
 adversaryView adversary =
   let
-    adversaryShapeScaled = adversaryShape |> List.map (Vector2.scale (adversary.mass ^ 0.5))
+    adversaryShapeScaled = adversaryShape |> List.map (Vector2.scale ((adversary.mass / GameConfig.adversaryMass) ^ 0.5))
   in
     Svg.path [ SA.d ((Visuals.svgPathDataFromPolygonListPoint adversaryShapeScaled) ++ "z"), style adversaryStyle ] []
 

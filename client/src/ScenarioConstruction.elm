@@ -2,6 +2,7 @@ module ScenarioConstruction exposing (..)
 -- Functions for constructing a scenario/gameworld.
 
 import Base exposing (..)
+import GameConfig
 import Scenario exposing (..)
 import Dict
 import Set
@@ -11,6 +12,7 @@ import Vector2 exposing (Float2)
 emptyScenario : Scenario.Model
 emptyScenario =
     {
+        config = GameConfig.scenarioConfig,
         timeMilli = 0,
         joints = Dict.empty,
         permSupport = Dict.empty,

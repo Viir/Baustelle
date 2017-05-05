@@ -1,6 +1,7 @@
 module Game exposing (Model, Msg, progress, initialGame, update, view)
 
 import Base exposing (..)
+import GameConfig
 import Scenario
 import ScenarioConstruction
 import ScenarioViewport
@@ -106,7 +107,7 @@ withAdversaryAddedAtRandomLocation seed scenario =
     in
         case locationsToChooseFrom |> listRandomItem seed of
         Nothing -> scenario
-        Just adversaryLocation -> scenario |> Scenario.withAdversaryAddedOnBeam (adversaryLocation, 1)
+        Just adversaryLocation -> scenario |> Scenario.withAdversaryAddedOnBeam (adversaryLocation, GameConfig.adversaryMass)
 
 update : Msg -> Model -> Model
 update msg game =
