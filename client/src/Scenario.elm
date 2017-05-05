@@ -179,18 +179,24 @@ updateForPlayerInput : FromPlayerMsg -> Model -> Model
 updateForPlayerInput msg scenario =
   case msg of
   BuildBeam startJointId endJointId ->
-    if startJointId == endJointId || (getAllReachedJointsIds scenario |> Set.member startJointId |> not)
-    then scenario
-    else
-      case distanceFromJointsInScenario scenario (startJointId, endJointId) of
-      Just beamLength ->
-        let
-          beam = { builtLength = beamLength }
-          supplies = scenario.supplies - beamLength
-        in
-          if supplies < 0 then scenario else
-          { scenario | supplies = supplies, beams = scenario.beams |> Dict.insert (startJointId, endJointId) beam }
-      _ -> scenario
+    let
+      startJointIsReached = getAllReachedJointsIds scenario |> Set.member startJointId
+      beamExistingAtThisLocation =
+        [(startJointId, endJointId),(endJointId, startJointId)]
+        |> List.any (\locationExpression -> scenario.beams |> Dict.keys |> List.member locationExpression)
+    in
+      if startJointId == endJointId || (not startJointIsReached) || beamExistingAtThisLocation
+      then scenario
+      else
+        case distanceFromJointsInScenario scenario (startJointId, endJointId) of
+        Just beamLength ->
+          let
+            beam = { builtLength = beamLength }
+            supplies = scenario.supplies - beamLength
+          in
+            if supplies < 0 then scenario else
+            { scenario | supplies = supplies, beams = scenario.beams |> Dict.insert (startJointId, endJointId) beam }
+        _ -> scenario
   TempSupportForJoint jointId supportLocation ->
     if scenario.joints |> Dict.member jointId
     then scenario -- We do not support changing location of existing joints using this imput.
