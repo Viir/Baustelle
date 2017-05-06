@@ -19,7 +19,7 @@ scenarioConfig =
   {
     gravity = (0, -1e-4),
     maintainBeamLengthForceFactor = 16,
-    dampFactor = 3e-3,
+    dampFactor = 1e-4,
     beamFailThreshold = 0.3
   }
 

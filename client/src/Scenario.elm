@@ -1,4 +1,4 @@
-module Scenario exposing (Model, JointId, Beam, Adversary, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport, withAdversaryAddedOnBeam)
+module Scenario exposing (Model, JointId, Beam, Adversary, FromPlayerMsg (..), progress, updateForPlayerInputs, getAllReachedJointsIds, stressFactorFromBeam, distanceFromJointsInScenario, getJointsFromSupport, withAdversaryAddedOnBeam, getForceTowardsJointAndMassFromBeam, getExpansionVelocityFromPairOfJoints)
 
 import Base exposing (..)
 import GameConfig exposing (ScenarioConfig, updateStepDuration)
@@ -57,8 +57,6 @@ updateStep duration scenario =
 
     config = scenario.config
 
-    gravityAcceleration = config.gravity |> Vector2.scale durationFloat
-
     originalJoints = scenario.joints |> Dict.union (getJointsFromSupport scenario)
 
     joints : Dict.Dict JointId Joint
@@ -80,19 +78,10 @@ updateStep duration scenario =
                   Nothing -> Nothing
                   Just otherJoint ->
                     let
-                      beamAdversaryMass =
+                      beamAdversary =
                         scenario.adversaries |> Dict.get beamLocation
-                        |> Maybe.andThen (\adversary -> Just adversary.mass) |> Maybe.withDefault 0
-
-                      beamLength = joint.location |> Vector2.distance otherJoint.location
-                      beamCurrentMass = beamLength + beamAdversaryMass
-                      beamExpansionForceAmount = (beam.builtLength / beamLength) - 1
-                      beamGravityForce = gravityAcceleration |> Vector2.scale beamCurrentMass
-                      beamMaintainLengthForce =
-                        Vector2.directionFromTo otherJoint.location joint.location
-                        |> Vector2.scale (beamExpansionForceAmount * config.maintainBeamLengthForceFactor)
                     in
-                      Just (beamMaintainLengthForce |> Vector2.add beamGravityForce, beamCurrentMass))
+                      Just (getForceTowardsJointAndMassFromBeam config durationFloat joint otherJoint beam beamAdversary))
 
           connectedBeamsForce =
             connectedBeamsForcesAndMasses |> List.map Tuple.first
@@ -102,8 +91,9 @@ updateStep duration scenario =
             connectedBeamsForcesAndMasses |> List.map Tuple.second
             |> List.sum
 
+          -- Avoid division by zero for case of zero connected beams.
           combinedAcceleration =
-            connectedBeamsForce |> Vector2.scale (1 / connectedBeamsMass)
+            connectedBeamsForce |> Vector2.scale (1 / (connectedBeamsMass + 1e-6))
 
           dampFactor = (1 + config.dampFactor) ^ durationFloat
 
@@ -121,6 +111,29 @@ updateStep duration scenario =
     maxHeightRecord = getCurrentBuildingHeight afterMechanics |> max afterMechanics.maxHeightRecord
   in
     { afterMechanics | maxHeightRecord = maxHeightRecord }
+
+getForceTowardsJointAndMassFromBeam : ScenarioConfig -> Float -> Joint -> Joint -> Beam -> Maybe Adversary -> (Float2, Float)
+getForceTowardsJointAndMassFromBeam config durationFloat affectedJoint otherJoint beam maybeAdversary =
+  let
+    gravityAcceleration = config.gravity |> Vector2.scale durationFloat
+
+    beamAdversaryMass =
+      maybeAdversary |> Maybe.andThen (\adversary -> Just adversary.mass) |> Maybe.withDefault 0
+
+    beamLength = affectedJoint.location |> Vector2.distance otherJoint.location
+    beamCurrentMass = beamLength + beamAdversaryMass
+    beamExpansionDirection = Vector2.directionFromTo otherJoint.location affectedJoint.location
+    beamExpansionVelocity = getExpansionVelocityFromPairOfJoints affectedJoint otherJoint
+    beamExpansionForceAmount = ((beam.builtLength / beamLength - beamExpansionVelocity) - 1)
+    beamGravityForce = gravityAcceleration |> Vector2.scale beamCurrentMass
+    beamMaintainLengthForce =
+      beamExpansionDirection |> Vector2.scale (beamExpansionForceAmount * config.maintainBeamLengthForceFactor)
+  in
+    (beamMaintainLengthForce |> Vector2.add beamGravityForce, beamCurrentMass)
+
+getExpansionVelocityFromPairOfJoints : Joint -> Joint -> Float
+getExpansionVelocityFromPairOfJoints joint0 joint1 =
+  Vector2.dot (Vector2.sub joint1.velocity joint0.velocity) (Vector2.directionFromTo joint0.location joint1.location)
 
 removeJointsOutsideScenario : Model -> Model
 removeJointsOutsideScenario scenario =
