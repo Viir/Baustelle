@@ -27,7 +27,7 @@ init =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Time.every (Time.second * 0.1) TimeUpdate
+  Time.every (Time.second * 0.02) TimeUpdate
 
 view : Model -> Html.Html Msg
 view model =
