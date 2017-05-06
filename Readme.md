@@ -1,13 +1,10 @@
 Building game created for webgamers.de "Game Dev Challenge 2"
 
-At the moment it is mostly a sandbox, goals and tradeoffs need to be introduced to make it a game.
+Prevent the building from collapsing.
 
-Screenshot of version at commit 9582471:
+Use your budget to reinforce the building to make it last as long as possible.
 
-![Screenshot of version at commit 9582471](/devlog/2017-04-29.Baustelle@commit[9582471].gif?raw=true)
-
-Screenshot of version at commit 3441288:
+Play the game at [http://viir.de/wip/baustelle/recent.html](http://viir.de/wip/baustelle/recent.html)
 
 ![Screenshot of version at commit 3441288](/devlog/2017-05-04.baustelle.at-commit[3441288].gif?raw=true)
-
 
