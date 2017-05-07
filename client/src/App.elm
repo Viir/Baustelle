@@ -1,6 +1,7 @@
 import Html exposing (div, button, text)
 import Game
 import Time
+import AnimationFrame
 import Random
 
 
@@ -27,7 +28,7 @@ init =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Time.every (Time.second * 0.02) TimeUpdate
+  AnimationFrame.times TimeUpdate
 
 view : Model -> Html.Html Msg
 view model =
