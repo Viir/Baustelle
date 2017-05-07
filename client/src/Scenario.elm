@@ -18,8 +18,6 @@ type alias Model =
     permSupport : Dict.Dict JointId Float2,
     tempSupport : Dict.Dict JointId Float2,
     outsetJoints : Set.Set JointId,
-    tempSupportRange : Float,
-    maxHeightRecord : Float,
     adversaries : Dict.Dict (JointId, JointId) Adversary,
     supplies : Float
   }
@@ -103,14 +101,9 @@ updateStep duration scenario =
           location = joint.location |> Vector2.add (joint.velocity |> Vector2.scale durationFloat)
 
         in { joint | location = location, velocity = velocity })
-
-    afterMechanics =
-      { scenario | joints = joints, timeMilli = scenario.timeMilli + duration }
-      |> removeJointsOutsideScenario |> updateForFailure
-
-    maxHeightRecord = getCurrentBuildingHeight afterMechanics |> max afterMechanics.maxHeightRecord
   in
-    { afterMechanics | maxHeightRecord = maxHeightRecord }
+    { scenario | joints = joints, timeMilli = scenario.timeMilli + duration }
+    |> removeJointsOutsideScenario |> updateForFailure
 
 getForceTowardsJointAndMassFromBeam : ScenarioConfig -> Float -> Joint -> Joint -> Beam -> Maybe Adversary -> (Float2, Float)
 getForceTowardsJointAndMassFromBeam config durationFloat affectedJoint otherJoint beam maybeAdversary =
@@ -212,18 +205,9 @@ updateForPlayerInput msg scenario =
     then scenario -- We do not support changing location of existing joints using this imput.
     else
       let
-        locationIsInRange =
-          getAllReachedJointsIds scenario |> Set.toList
-          |> List.filterMap (\jointId -> scenario.joints |> Dict.get jointId)
-          |> List.any (\joint -> (joint.location |> Vector2.distance supportLocation) < scenario.tempSupportRange)
+        tempSupport = Dict.singleton jointId supportLocation -- Only one temp support is allowed for a given point in time.
       in
-        if not locationIsInRange
-        then scenario
-        else
-          let
-            tempSupport = Dict.singleton jointId supportLocation -- Only one temp support is allowed for a given point in time.
-          in
-            { scenario | tempSupport = tempSupport }
+        { scenario | tempSupport = tempSupport }
     |> progress 0
 
 distanceFromJointsInScenario : Model -> (JointId, JointId) -> Maybe Float

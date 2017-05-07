@@ -19,8 +19,6 @@ emptyScenario =
         tempSupport = Dict.empty,
         beams = Dict.empty,
         outsetJoints = Set.empty,
-        tempSupportRange = 0,
-        maxHeightRecord = -9999,
         adversaries = Dict.empty,
         supplies = 0
     }
@@ -85,5 +83,3 @@ withBeamsAddedForMaxLength maxLength scenarioBeforePropagationOfSupport =
   in
     { scenario | beams = scenario.beams |> Dict.union beams }
 
-withTempSupportRange : Float -> Scenario.Model -> Scenario.Model
-withTempSupportRange range scenario = { scenario | tempSupportRange = range }

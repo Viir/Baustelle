@@ -46,7 +46,6 @@ initialScenario =
     emptyScenario = ScenarioConstruction.emptyScenario
   in
     { emptyScenario | supplies = 1000 }
-    |> ScenarioConstruction.withTempSupportRange 150
     |> ScenarioConstruction.withPermSupportAddedAtLocations
       (supportJointsLocations |> List.map (\location -> (location, True)))
     |> ScenarioConstruction.withJointsAddedAtLocations towerJointsLocations
