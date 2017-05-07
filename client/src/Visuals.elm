@@ -37,10 +37,13 @@ svgCenteredText : String -> Float2 -> Float -> String -> Html.Html a
 svgCenteredText text (x, y) fontSize color =
   Svg.text_ [ SA.x (x |> toString), SA.y (y |> toString), style (svgCenteredTextStyle fontSize color) ] [ Svg.text text ]
 
+cssFontFamily : String
+cssFontFamily = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+
 svgCenteredTextStyle : Float -> String -> HtmlStyle
 svgCenteredTextStyle fontSize color =
   [
-    ("text-anchor","middle"),("font-size", (fontSize |> toString) ++ "px"),("font-family","'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"),
+    ("text-anchor","middle"),("font-size", (fontSize |> toString) ++ "px"),("font-family", cssFontFamily),
     ("fill",color),("opacity","0.7")
   ]
 

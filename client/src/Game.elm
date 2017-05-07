@@ -29,6 +29,9 @@ type alias Model =
 
 type Msg = ScenarioViewport ScenarioViewport.Msg
 
+versionTextAndUrl : (String, String)
+versionTextAndUrl = ("Baustelle v2017-05-07 - distilled games", "http://distilled.games/")
+
 initialScenario : Scenario.Model
 initialScenario =
   let
@@ -178,7 +181,8 @@ view gameBeforeUpdate =
         [
             ScenarioViewport.view scenarioViewModel |> Html.map ScenarioViewport,
             [ suppliesView ] |> List.append instructionViewElements |> Svg.g [ style [("pointer-events","none")]],
-            gameOverViewElements |> Svg.g []
+            gameOverViewElements |> Svg.g [],
+            versionView
         ]
         |> Svg.svg [ SA.width (viewportWidth |> toString), SA.height (viewportHeight |> toString), style viewportStyle ]
 
@@ -190,6 +194,21 @@ instructionsView =
         instructionTextLines
         |> List.indexedMap (\i textLine -> Visuals.svgCenteredText textLine (0, fontSize * 1.3 * (i |> toFloat)) fontSize "whitesmoke")
         |> Visuals.svgGroupWithTranslationAndElements ((ScenarioViewport.viewportSize |> Tuple.first) / 2, 70)
+
+versionView : Html.Html a
+versionView =
+    let
+        (viewportWidth, viewportHeight) = ScenarioViewport.viewportSize
+        styleList =
+        [
+            ("text-anchor","end"),("font-size", "13px"),("font-family", Visuals.cssFontFamily),
+            ("fill", "whitesmoke"),("opacity","0.3"),("cursor","pointer")
+        ]
+    in
+        [ Svg.text (versionTextAndUrl |> Tuple.first) ]
+        |> Svg.text_ [ SA.x (viewportWidth - 30 |> toString), SA.y (viewportHeight - 16 |> toString), style styleList ]
+        |> List.singleton |> Svg.a [ SA.xlinkHref (versionTextAndUrl |> Tuple.second) ]
+            
 
 gameOverView : Model -> Html.Html a
 gameOverView game =
