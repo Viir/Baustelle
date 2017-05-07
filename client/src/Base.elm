@@ -38,3 +38,6 @@ pickRandomItemFromListWeighted randomSeed listWeighted =
     listWithBound
     |> List.filter (\(_, itemBound) -> itemBound < weightUnitIndex)
     |> List.head |> Maybe.andThen (\(item, _) -> Just item)
+
+tuple2Swap : (a, b) -> (b, a)
+tuple2Swap (a, b) = (b, a)

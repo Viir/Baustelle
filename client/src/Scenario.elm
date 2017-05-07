@@ -184,11 +184,8 @@ updateForPlayerInput msg scenario =
   BuildBeam startJointId endJointId ->
     let
       startJointIsReached = getAllReachedJointsIds scenario |> Set.member startJointId
-      beamExistingAtThisLocation =
-        [(startJointId, endJointId),(endJointId, startJointId)]
-        |> List.any (\locationExpression -> scenario.beams |> Dict.keys |> List.member locationExpression)
     in
-      if startJointId == endJointId || (not startJointIsReached) || beamExistingAtThisLocation
+      if startJointId == endJointId || (not startJointIsReached)
       then scenario
       else
         case distanceFromJointsInScenario scenario (startJointId, endJointId) of
@@ -196,9 +193,10 @@ updateForPlayerInput msg scenario =
           let
             beam = { builtLength = beamLength }
             supplies = scenario.supplies - beamLength
+            scenarioWithBeamRemoved = scenario |> withBeamRemovedAtLocation (startJointId, endJointId)
           in
             if supplies < 0 then scenario else
-            { scenario | supplies = supplies, beams = scenario.beams |> Dict.insert (startJointId, endJointId) beam }
+            { scenarioWithBeamRemoved | supplies = supplies, beams = scenario.beams |> Dict.insert (startJointId, endJointId) beam }
         _ -> scenario
   TempSupportForJoint jointId supportLocation ->
     if scenario.joints |> Dict.member jointId
@@ -209,6 +207,14 @@ updateForPlayerInput msg scenario =
       in
         { scenario | tempSupport = tempSupport }
     |> progress 0
+
+withBeamRemovedAtLocation : (JointId, JointId) -> Model -> Model
+withBeamRemovedAtLocation location scenario =
+  let
+    beams = scenario.beams |> Dict.remove location |> Dict.remove (location |> tuple2Swap)
+  in
+    { scenario | beams = beams }
+    |> withAdversariesRemovedWhereBeamDoesNotExist
 
 distanceFromJointsInScenario : Model -> (JointId, JointId) -> Maybe Float
 distanceFromJointsInScenario scenario (joint0Id, joint1Id) =
