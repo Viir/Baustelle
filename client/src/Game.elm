@@ -177,8 +177,7 @@ view gameBeforeUpdate =
     in
         [
             ScenarioViewport.view scenarioViewModel |> Html.map ScenarioViewport,
-            [ suppliesView ] |> Svg.g [ style [("pointer-events","none")]],
-            instructionViewElements |> Svg.g [],
+            [ suppliesView ] |> List.append instructionViewElements |> Svg.g [ style [("pointer-events","none")]],
             gameOverViewElements |> Svg.g []
         ]
         |> Svg.svg [ SA.width (viewportWidth |> toString), SA.height (viewportHeight |> toString), style viewportStyle ]
