@@ -165,21 +165,32 @@ view gameBeforeUpdate =
                 Visuals.svgCenteredText (text ++ " $") (viewportWidth / 2 + (i |> toFloat) * 80, 30) 20 color)
             |> Svg.g []
 
-        gameOverViewElements =
+        (instructionViewElements, gameOverViewElements) =
             if game |> isGameOver
             then
+                ([],
                 [
                     Svg.rect (Visuals.svgRectAttributesSizeAll |> List.append [ style [("fill","black"),("opacity","0.5")]]) [],
                     gameOverView game
-                ]
-            else []
+                ])
+            else ([instructionsView], [])
     in
         [
             ScenarioViewport.view scenarioViewModel |> Html.map ScenarioViewport,
             [ suppliesView ] |> Svg.g [ style [("pointer-events","none")]],
+            instructionViewElements |> Svg.g [],
             gameOverViewElements |> Svg.g []
         ]
         |> Svg.svg [ SA.width (viewportWidth |> toString), SA.height (viewportHeight |> toString), style viewportStyle ]
+
+instructionsView : Html.Html a
+instructionsView =
+    let
+        fontSize = 16
+    in
+        instructionTextLines
+        |> List.indexedMap (\i textLine -> Visuals.svgCenteredText textLine (0, fontSize * 1.3 * (i |> toFloat)) fontSize "whitesmoke")
+        |> Visuals.svgGroupWithTranslationAndElements ((ScenarioViewport.viewportSize |> Tuple.first) / 2, 70)
 
 gameOverView : Model -> Html.Html a
 gameOverView game =
@@ -215,6 +226,9 @@ getMouseLeftButtonEventForOffset eventType offset =
     offset = offset,
     wheelDelta = (0,0)
   }
+
+instructionTextLines : List String
+instructionTextLines = [ "Prevent the tower from collapsing.", "Use the mouse cursor and drag to add beams to reinforce the structure." ]
 
 viewportStyle : HtmlStyle
 viewportStyle =
